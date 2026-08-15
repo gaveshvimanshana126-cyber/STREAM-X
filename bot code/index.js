@@ -288,6 +288,13 @@ async function processFirebaseBotQueue() {
 
       console.log(`🚀 Processing Direct WhatsApp Request for [${userName}] (${req.phone}): ${movieTitle}`);
 
+      // Mark request as processing immediately in Firebase RTDB to prevent repeat loops
+      await fetch(`${FIREBASE_DB_URL}/bot_requests/${req.reqId}/status.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify('processing')
+      });
+
       // Step 1: Enqueued notice matching Screenshot 2
       const msg1 = `🎬 *${movieTitle}* පේළිමට එක් කරන ලදී.\n👤 *නම:* ${userName}\n🔢 *ඔබගේ වාරය:* පේළිමේ 1 වෙනියා\n\nඔබගේ වාරය පැමිණි විගස බාගත කිරීම ආරම්භ කරනු ඇත.`;
       await sock.sendMessage(jid, { text: msg1 });
@@ -356,6 +363,7 @@ async function processFirebaseBotQueue() {
       // Update status in Firebase RTDB to completed
       await fetch(`${FIREBASE_DB_URL}/bot_requests/${req.reqId}/status.json`, {
         method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify('completed')
       });
     }
@@ -477,8 +485,8 @@ const secureBotAuth = (req, res, next) => {
   next();
 };
 
-// REST API Endpoints for Web Dashboard (Protected with API Key)
-app.get('/api/status', secureBotAuth, (req, res) => {
+// REST API Endpoints for Web Dashboard & Pairing
+app.get('/api/status', (req, res) => {
   res.json({
     connected: isConnected,
     database: dbStatus,
@@ -487,14 +495,14 @@ app.get('/api/status', secureBotAuth, (req, res) => {
   });
 });
 
-app.get('/api/qr', secureBotAuth, (req, res) => {
+app.get('/api/qr', (req, res) => {
   res.json({
     connected: isConnected,
     qrImage: latestQRImage
   });
 });
 
-app.post('/api/pair', secureBotAuth, async (req, res) => {
+app.post('/api/pair', async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) {

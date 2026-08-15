@@ -44,14 +44,10 @@ export default function WhatsAppDeliveryModal({ movie, selectedQuality = '720p',
       setSubmitting(false);
       setSuccess(true);
 
-      // 2. Also open direct WhatsApp chat as instant backup
-      const botNum = localStorage.getItem('cf_wa_num') || '+94771234567';
-      const cleanBotNum = botNum.replace(/[^0-9]/g, '');
-      const msgText = encodeURIComponent(`Hi Cineflix! I want to download ${movie.title} (${movie.year || '2025'}) via WhatsApp. Movie Code: ${movie.id} | Name: ${userName.trim()}`);
-      
+      // Auto close modal after 3.5 seconds
       setTimeout(() => {
-        window.open(`https://api.whatsapp.com/send?phone=${cleanBotNum}&text=${msgText}`, '_blank');
-      }, 1500);
+        onClose();
+      }, 3500);
 
     } catch (err) {
       setSubmitting(false);
