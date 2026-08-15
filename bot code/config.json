@@ -1,0 +1,14 @@
+{
+  "botName": "Cineflix Movie Downloader Bot",
+  "prefix": ".",
+  "websiteUrl": "https://cineflix-lk.vercel.app",
+  "mongodbUri": "mongodb+srv://ccransika_db_user:Pc1u7xrzGEn4LJvw@cluster0.sntej6n.mongodb.net/cineflix_bot?retryWrites=true&w=majority",
+  "moviesJsonPath": "../src/data/initialMovies.json",
+  "messages": {
+    "welcome": "🎬 *Welcome to Cineflix WhatsApp Download Bot!*\n\nSend movie command code from the website (e.g. `.768291444589299400396492 Idhayam Murali 2026 480p`) or send `.search <movie_name>` to find movies.",
+    "sending": "⏳ Sending *{title} ({quality})* with Sinhala Subtitles | සිංහල උපසිරැසි සමඟ...",
+    "downloadSuccess": "✅ *{title} ({quality})* Movie Download Complete!\n\n🍿 Enjoy watching on Cineflix!",
+    "notFound": "❌ Movie not found. Please check the movie code or visit Cineflix website: https://cineflix-lk.vercel.app",
+    "error": "⚠️ Failed to process download. Please try again shortly or use direct download mirror on website."
+  }
+}
