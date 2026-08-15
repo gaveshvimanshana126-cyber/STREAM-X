@@ -5,7 +5,6 @@ import CategoryFilter from './components/CategoryFilter.jsx';
 import MovieGrid from './components/MovieGrid.jsx';
 import MovieDetailModal from './components/MovieDetailModal.jsx';
 import WhatsAppDownloadModal from './components/WhatsAppDownloadModal.jsx';
-import WhatsAppBotGuideModal from './components/WhatsAppBotGuideModal.jsx';
 import RequestMovieModal from './components/RequestMovieModal.jsx';
 import AdminLoginModal from './components/AdminLoginModal.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
@@ -32,7 +31,6 @@ export default function App() {
 
   // Modals state
   const [whatsappDlMovie, setWhatsappDlMovie] = useState(null);
-  const [showBotGuide, setShowBotGuide] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
 
   useEffect(() => {
@@ -214,7 +212,6 @@ export default function App() {
       <Navbar
         searchTerm={searchTerm}
         setSearchTerm={handleSearchChange}
-        onOpenBotGuide={() => setShowBotGuide(true)}
         onOpenAdmin={handleAdminTrigger}
         onOpenRequest={() => setShowRequestModal(true)}
       />
@@ -242,7 +239,7 @@ export default function App() {
               />
             )}
 
-            {/* 3. Category Pills & Year Selector Bar (Positioned DIRECTLY BELOW Hero matching index (45).html!) */}
+            {/* 3. Category Pills & Year Selector Bar */}
             <CategoryFilter
               selectedCategory={selectedCategory}
               onSelectCategory={handleSelectCategory}
@@ -269,13 +266,10 @@ export default function App() {
             <p className="text-white font-bold text-base tracking-wider uppercase font-['Bebas_Neue']">
               CINE<span className="text-[#E8262A]">FLIX</span> LK
             </p>
-            <p className="text-gray-400">ලංකාවේ #1 Sinhala Subtitle අඩවිය • WhatsApp Bot Direct Movie Downloader.</p>
+            <p className="text-gray-400">ලංකාවේ #1 Sinhala Subtitle අඩවිය • Watch Movies & TV Series Online Free.</p>
           </div>
 
           <div className="flex items-center space-x-4">
-            <button onClick={() => setShowBotGuide(true)} className="hover:text-emerald-400 transition-colors">
-              WhatsApp Bot Setup
-            </button>
             <button onClick={handleAdminTrigger} className="hover:text-white transition-colors">
               Admin Login
             </button>
@@ -288,12 +282,6 @@ export default function App() {
         <WhatsAppDownloadModal
           movie={whatsappDlMovie}
           onClose={() => setWhatsappDlMovie(null)}
-        />
-      )}
-
-      {showBotGuide && (
-        <WhatsAppBotGuideModal
-          onClose={() => setShowBotGuide(false)}
         />
       )}
 

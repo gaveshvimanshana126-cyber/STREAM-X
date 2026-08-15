@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search } from 'lucide-react';
+import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search, User, Image, Subtitles } from 'lucide-react';
 import { getBotPhoneNumber, saveBotPhoneNumber } from '../data/moviesData.js';
 
 export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) {
@@ -8,7 +8,7 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
   const [editingMovieId, setEditingMovieId] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
 
-  // Movie form state
+  // Movie form state covering ALL fields matching index (45).html
   const [movieForm, setMovieForm] = useState({
     title: '',
     year: new Date().getFullYear().toString(),
@@ -17,10 +17,13 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
     quality: 'WEB-DL',
     genre: 'Action,Thriller',
     subBy: 'Cineflix Sub',
-    runtime: '2h 00m',
+    runtime: '2h 18m',
     country: 'USA',
-    cast: '',
-    director: '',
+    releaseDate: 'December 23, 2022',
+    director: 'Trinadha Rao Nakkina',
+    stars: 'Ravi Teja, Sreeleela, Jayaram',
+    cast: 'Ravi Teja, Sreeleela, Jayaram',
+    stills: '',
     poster: '',
     backdrop: '',
     description: '',
@@ -28,9 +31,8 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
     streamUrl2: '',
     srv1: '',
     srv2: '',
-    pd480: '',
-    pd720: '',
-    pd1080: '',
+    size720p: '1.46GB',
+    size1080p: '1.85GB',
     tgLink: '',
     subUrl: ''
   });
@@ -46,7 +48,6 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
     setEditingMovieId(movie.id);
     const dl720 = movie.downloads?.find(d => d.res === '720p') || movie.downloads?.[0];
     const dl1080 = movie.downloads?.find(d => d.res === '1080p') || movie.downloads?.[1];
-    const dl480 = movie.downloads?.find(d => d.res === '480p');
 
     setMovieForm({
       title: movie.title || '',
@@ -56,10 +57,13 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
       quality: movie.quality || 'WEB-DL',
       genre: movie.genre || 'Action,Thriller',
       subBy: movie.subBy || 'Cineflix Sub',
-      runtime: movie.runtime || '2h 00m',
+      runtime: movie.runtime || '2h 18m',
       country: movie.country || 'USA',
-      cast: movie.cast || '',
+      releaseDate: movie.releaseDate || 'December 23, 2022',
       director: movie.director || '',
+      stars: movie.stars || '',
+      cast: movie.cast || '',
+      stills: Array.isArray(movie.stills) ? movie.stills.join(', ') : (movie.stills || ''),
       poster: movie.poster || '',
       backdrop: movie.backdrop || '',
       description: movie.description || '',
@@ -67,9 +71,8 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
       streamUrl2: movie.streamUrl2 || '',
       srv1: dl720?.srv1 || '',
       srv2: dl720?.srv2 || '',
-      pd480: dl480?.srv2 || '',
-      pd720: dl720?.srv2 || '',
-      pd1080: dl1080?.srv2 || '',
+      size720p: dl720?.size || '1.46GB',
+      size1080p: dl1080?.size || '1.85GB',
       tgLink: dl720?.tgLink || '',
       subUrl: movie.subUrl || ''
     });
@@ -80,6 +83,10 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
   const handleSaveMovieForm = (e) => {
     e.preventDefault();
     if (!movieForm.title) return;
+
+    const stillsList = movieForm.stills
+      ? movieForm.stills.split(',').map(s => s.trim()).filter(Boolean)
+      : [movieForm.backdrop, movieForm.poster].filter(Boolean);
 
     const movieObj = {
       id: editingMovieId || `-m${Date.now().toString(36)}`,
@@ -93,8 +100,11 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
       subBy: movieForm.subBy,
       runtime: movieForm.runtime,
       country: movieForm.country,
-      cast: movieForm.cast,
+      releaseDate: movieForm.releaseDate,
       director: movieForm.director,
+      stars: movieForm.stars,
+      cast: movieForm.cast,
+      stills: stillsList,
       poster: movieForm.poster || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500',
       backdrop: movieForm.backdrop || 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200',
       description: movieForm.description,
@@ -104,18 +114,16 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
       downloads: [
         {
           res: '720p',
-          size: '699MB',
+          size: movieForm.size720p || '1.46GB',
           srv1: movieForm.srv1,
           srv2: movieForm.srv2,
-          pd720: movieForm.pd720,
           tgLink: movieForm.tgLink
         },
         {
           res: '1080p',
-          size: '2.53GB',
+          size: movieForm.size1080p || '1.85GB',
           srv1: movieForm.srv1,
           srv2: movieForm.srv2,
-          pd1080: movieForm.pd1080,
           tgLink: movieForm.tgLink
         }
       ]
@@ -131,29 +139,11 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
     onSaveMovies(updatedMovies);
     setEditingMovieId(null);
     setMovieForm({
-      title: '',
-      year: new Date().getFullYear().toString(),
-      type: 'movie',
-      rating: '7.5',
-      quality: 'WEB-DL',
-      genre: 'Action,Thriller',
-      subBy: 'Cineflix Sub',
-      runtime: '2h 00m',
-      country: 'USA',
-      cast: '',
-      director: '',
-      poster: '',
-      backdrop: '',
-      description: '',
-      streamUrl: '',
-      streamUrl2: '',
-      srv1: '',
-      srv2: '',
-      pd480: '',
-      pd720: '',
-      pd1080: '',
-      tgLink: '',
-      subUrl: ''
+      title: '', year: new Date().getFullYear().toString(), type: 'movie', rating: '7.5',
+      quality: 'WEB-DL', genre: 'Action,Thriller', subBy: 'Cineflix Sub', runtime: '2h 18m',
+      country: 'USA', releaseDate: 'December 23, 2022', director: 'Trinadha Rao Nakkina', stars: '',
+      cast: '', stills: '', poster: '', backdrop: '', description: '', streamUrl: '', streamUrl2: '',
+      srv1: '', srv2: '', size720p: '1.46GB', size1080p: '1.85GB', tgLink: '', subUrl: ''
     });
   };
 
@@ -188,7 +178,7 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
               CINE<span className="text-[#E8262A]">FLIX</span> ADMIN DASHBOARD
             </h1>
             <p className="text-[10px] text-gray-400 font-semibold hidden sm:block">
-              Add & Edit Movies, Video Streams, Download Mirrors, Subtitles & WhatsApp Bot Phone Settings
+              Full Control over Movies, Directors, Cast, Stills, Video Streams, Subtitles & Download Mirrors
             </p>
           </div>
         </div>
@@ -205,7 +195,7 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
       {/* Main Admin Dashboard Body */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
         
-        {/* Section 1: WhatsApp Bot Phone Number Settings */}
+        {/* Section 1: WhatsApp Bot Phone Settings */}
         <div className="p-6 rounded-2xl bg-[#111111] border border-gray-800 shadow-xl space-y-4">
           <div className="flex items-center space-x-3 border-b border-gray-800 pb-3">
             <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -213,7 +203,7 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-white">WhatsApp Bot Phone Number Settings</h3>
-              <p className="text-xs text-gray-400">Specify the official WhatsApp Bot phone number for automatic download commands</p>
+              <p className="text-xs text-gray-400">Official WhatsApp Bot phone number for automatic movie file delivery</p>
             </div>
           </div>
 
@@ -244,9 +234,9 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-white">
-                  {editingMovieId ? `Editing Movie ID: ${editingMovieId}` : 'Add New Movie to Database'}
+                  {editingMovieId ? `Editing Movie ID: ${editingMovieId}` : 'Add New Movie to Site Database'}
                 </h3>
-                <p className="text-xs text-gray-400">Fill in stream players, download links, and plot details below</p>
+                <p className="text-xs text-gray-400">Configure movie info, cast, stills, video streams, download mirrors & subtitles</p>
               </div>
             </div>
 
@@ -257,9 +247,10 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
                   setEditingMovieId(null);
                   setMovieForm({
                     title: '', year: new Date().getFullYear().toString(), type: 'movie', rating: '7.5',
-                    quality: 'WEB-DL', genre: 'Action,Thriller', subBy: 'Cineflix Sub', runtime: '2h 00m',
-                    country: 'USA', cast: '', director: '', poster: '', backdrop: '', description: '',
-                    streamUrl: '', streamUrl2: '', srv1: '', srv2: '', pd480: '', pd720: '', pd1080: '', tgLink: '', subUrl: ''
+                    quality: 'WEB-DL', genre: 'Action,Thriller', subBy: 'Cineflix Sub', runtime: '2h 18m',
+                    country: 'USA', releaseDate: 'December 23, 2022', director: 'Trinadha Rao Nakkina', stars: '',
+                    cast: '', stills: '', poster: '', backdrop: '', description: '', streamUrl: '', streamUrl2: '',
+                    srv1: '', srv2: '', size720p: '1.46GB', size1080p: '1.85GB', tgLink: '', subUrl: ''
                   });
                 }}
                 className="px-4 py-1.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-gray-300 text-xs font-bold border border-gray-800"
@@ -270,7 +261,8 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
           </div>
 
           <form onSubmit={handleSaveMovieForm} className="space-y-4 text-xs">
-            {/* Row 1: Title & Year */}
+            
+            {/* Row 1: Title & Release Info */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
                 <label className="block text-gray-400 mb-1 font-bold">Movie Title *</label>
@@ -279,7 +271,7 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
                   required
                   value={movieForm.title}
                   onChange={(e) => setMovieForm({ ...movieForm, title: e.target.value })}
-                  placeholder="e.g. Backrooms (2026)"
+                  placeholder="e.g. Dhamaka (2022)"
                   className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
                 />
               </div>
@@ -289,14 +281,14 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
                   type="text"
                   value={movieForm.year}
                   onChange={(e) => setMovieForm({ ...movieForm, year: e.target.value })}
-                  placeholder="2026"
+                  placeholder="2022"
                   className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
                 />
               </div>
             </div>
 
-            {/* Row 2: Type, Quality, Rating */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Row 2: Type, Quality, Rating, Runtime */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
                 <label className="block text-gray-400 mb-1 font-bold">Type</label>
                 <select
@@ -315,7 +307,7 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
                   type="text"
                   value={movieForm.quality}
                   onChange={(e) => setMovieForm({ ...movieForm, quality: e.target.value })}
-                  placeholder="WEB-DL / WEB-RIP / BLURAY"
+                  placeholder="HD-RIP / WEB-DL"
                   className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
                 />
               </div>
@@ -326,13 +318,60 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
                   type="text"
                   value={movieForm.rating}
                   onChange={(e) => setMovieForm({ ...movieForm, rating: e.target.value })}
-                  placeholder="7.5"
+                  placeholder="4.2"
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-bold">Runtime</label>
+                <input
+                  type="text"
+                  value={movieForm.runtime}
+                  onChange={(e) => setMovieForm({ ...movieForm, runtime: e.target.value })}
+                  placeholder="2h 18m"
                   className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
                 />
               </div>
             </div>
 
-            {/* Row 3: Genres & SubBy */}
+            {/* Row 3: Release Date, Director, Stars */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-gray-400 mb-1 font-bold">Exact Release Date</label>
+                <input
+                  type="text"
+                  value={movieForm.releaseDate}
+                  onChange={(e) => setMovieForm({ ...movieForm, releaseDate: e.target.value })}
+                  placeholder="December 23, 2022"
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-bold">Director Name</label>
+                <input
+                  type="text"
+                  value={movieForm.director}
+                  onChange={(e) => setMovieForm({ ...movieForm, director: e.target.value })}
+                  placeholder="Trinadha Rao Nakkina"
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-bold">Starring Cast</label>
+                <input
+                  type="text"
+                  value={movieForm.stars}
+                  onChange={(e) => setMovieForm({ ...movieForm, stars: e.target.value })}
+                  placeholder="Ravi Teja, Sreeleela, Jayaram"
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+            </div>
+
+            {/* Row 4: Genres & Subtitle Translator */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-gray-400 mb-1 font-bold">Genres (comma separated)</label>
@@ -340,50 +379,62 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
                   type="text"
                   value={movieForm.genre}
                   onChange={(e) => setMovieForm({ ...movieForm, genre: e.target.value })}
-                  placeholder="Action, Thriller, Sci-Fi"
+                  placeholder="Action, Thriller, Comedy"
                   className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
                 />
               </div>
               <div>
-                <label className="block text-gray-400 mb-1 font-bold">Subtitle Translator Name</label>
+                <label className="block text-gray-400 mb-1 font-bold">Subtitle Translator Credit</label>
                 <input
                   type="text"
                   value={movieForm.subBy}
                   onChange={(e) => setMovieForm({ ...movieForm, subBy: e.target.value })}
-                  placeholder="Cineflix Sub Team"
+                  placeholder="Cineflix.lk"
                   className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
                 />
               </div>
             </div>
 
-            {/* Row 4: Poster & Backdrop URLs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Row 5: Poster, Backdrop & Movie Stills */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-gray-400 mb-1 font-bold">Poster Image URL (2:3 aspect)</label>
                 <input
                   type="text"
                   value={movieForm.poster}
                   onChange={(e) => setMovieForm({ ...movieForm, poster: e.target.value })}
-                  placeholder="https://image.tmdb.org/t/p/w500/..."
+                  placeholder="https://..."
                   className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
                 />
               </div>
+
               <div>
-                <label className="block text-gray-400 mb-1 font-bold">Backdrop Banner Image URL</label>
+                <label className="block text-gray-400 mb-1 font-bold">Backdrop Banner URL</label>
                 <input
                   type="text"
                   value={movieForm.backdrop}
                   onChange={(e) => setMovieForm({ ...movieForm, backdrop: e.target.value })}
-                  placeholder="https://image.tmdb.org/t/p/original/..."
+                  placeholder="https://..."
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-bold">Movie Stills Screenshots (comma separated URLs)</label>
+                <input
+                  type="text"
+                  value={movieForm.stills}
+                  onChange={(e) => setMovieForm({ ...movieForm, stills: e.target.value })}
+                  placeholder="https://url1, https://url2"
                   className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
                 />
               </div>
             </div>
 
-            {/* Row 5: Stream & Subtitle Links */}
+            {/* Row 6: Video Streams & Download Mirrors */}
             <div className="p-4 rounded-xl bg-gray-950 border border-gray-800 space-y-3">
               <h4 className="font-bold text-red-500 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                <Link2 className="w-3.5 h-3.5" /> STREAM & DOWNLOAD MIRROR LINKS
+                <Link2 className="w-3.5 h-3.5" /> STREAM & DOWNLOAD MIRRORS CONFIGURATION
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -398,7 +449,7 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-400 mb-1">Stream Video Player 1 URL (iframe / embed URL)</label>
+                  <label className="block text-gray-400 mb-1">Stream Video Player 1 URL (iframe embed)</label>
                   <input
                     type="text"
                     value={movieForm.streamUrl}
@@ -409,16 +460,28 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
                 </div>
 
                 <div>
-                  <label className="block text-gray-400 mb-1">Stream Video Player 2 URL</label>
+                  <label className="block text-gray-400 mb-1">720p File Size Tag</label>
                   <input
                     type="text"
-                    value={movieForm.streamUrl2}
-                    onChange={(e) => setMovieForm({ ...movieForm, streamUrl2: e.target.value })}
-                    placeholder="https://..."
+                    value={movieForm.size720p}
+                    onChange={(e) => setMovieForm({ ...movieForm, size720p: e.target.value })}
+                    placeholder="1.46GB"
                     className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-white"
                   />
                 </div>
+
                 <div>
+                  <label className="block text-gray-400 mb-1">1080p File Size Tag</label>
+                  <input
+                    type="text"
+                    value={movieForm.size1080p}
+                    onChange={(e) => setMovieForm({ ...movieForm, size1080p: e.target.value })}
+                    placeholder="1.85GB"
+                    className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
                   <label className="block text-gray-400 mb-1">Sinhala Subtitle File Link (.srt)</label>
                   <input
                     type="text"
@@ -431,21 +494,21 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
               </div>
             </div>
 
-            {/* Row 6: Synopsis */}
+            {/* Row 7: Plot Synopsis Overview */}
             <div>
-              <label className="block text-gray-400 mb-1 font-bold">Movie Plot Synopsis</label>
+              <label className="block text-gray-400 mb-1 font-bold">Movie Plot Overview / Synopsis</label>
               <textarea
                 rows={3}
                 value={movieForm.description}
                 onChange={(e) => setMovieForm({ ...movieForm, description: e.target.value })}
-                placeholder="Movie plot overview in Sinhala or English..."
+                placeholder="Movie synopsis text..."
                 className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-red-500"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-xl shadow-red-600/40 transition-all cursor-pointer"
+              className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-xl shadow-red-600/40 transition-all cursor-pointer"
             >
               {editingMovieId ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               <span>{editingMovieId ? 'Save Movie Changes' : 'Publish New Movie'}</span>
@@ -454,7 +517,7 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
           </form>
         </div>
 
-        {/* Section 3: Movie Database Library (With Search & Edit Links) */}
+        {/* Section 3: Movie Database Library */}
         <div className="p-6 rounded-2xl bg-[#111111] border border-gray-800 shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-gray-800 pb-4">
             <div>

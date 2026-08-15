@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Search, Calendar, Bookmark, Bell, Grid, X, MessageCircle, Settings, Send, ExternalLink } from 'lucide-react';
+import { Search, Calendar, Bookmark, Bell, Grid, X, Settings, Send, ExternalLink } from 'lucide-react';
 
 const CINEFLIX_LOGO_URL = 'https://raw.githubusercontent.com/gaveshvimanshna633-a11y/STREAM-X/refs/heads/main/file_000000000d6c720bba300c66d140d268.png';
 
 export default function Navbar({
   searchTerm,
   setSearchTerm,
-  onOpenBotGuide,
   onOpenAdmin,
   onOpenRequest,
   bookmarkedCount = 0
@@ -29,7 +28,6 @@ export default function Navbar({
             alt="Cineflix Logo"
             className="w-full h-full object-cover rounded-full"
             onError={(e) => {
-              // Fallback to stylized 'C' if network fails
               e.target.style.display = 'none';
               e.target.parentNode.innerText = 'C';
               e.target.parentNode.className += " font-black font-['Bebas_Neue'] text-lg text-white";
@@ -129,14 +127,6 @@ export default function Navbar({
           {/* Quick Panel Popup */}
           {showQuickMenu && (
             <div className="absolute top-11 sm:top-12 right-0 w-56 glass-panel rounded-2xl p-2 border border-gray-700 shadow-2xl space-y-1 z-50 bg-[#120a0a]">
-              <button
-                onClick={() => { setShowQuickMenu(false); onOpenBotGuide(); }}
-                className="w-full p-2.5 rounded-xl hover:bg-white/10 flex items-center space-x-3 text-xs font-bold text-emerald-400 text-left transition-all"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>WhatsApp Bot</span>
-              </button>
-
               <button
                 onClick={() => { setShowQuickMenu(false); onOpenAdmin(); }}
                 className="w-full p-2.5 rounded-xl hover:bg-white/10 flex items-center space-x-3 text-xs font-bold text-gray-200 text-left transition-all"
