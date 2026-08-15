@@ -4,6 +4,7 @@ import HeroSlider from './components/HeroSlider.jsx';
 import CategoryFilter from './components/CategoryFilter.jsx';
 import MovieGrid from './components/MovieGrid.jsx';
 import MovieDetailModal from './components/MovieDetailModal.jsx';
+import SubtitleDownloadModal from './components/SubtitleDownloadModal.jsx';
 import WhatsAppDownloadModal from './components/WhatsAppDownloadModal.jsx';
 import RequestMovieModal from './components/RequestMovieModal.jsx';
 import AdminLoginModal from './components/AdminLoginModal.jsx';
@@ -23,6 +24,7 @@ export default function App() {
 
   // Selected Movie State with Clean Pathname URL Sync
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [subDlMovie, setSubDlMovie] = useState(null);
 
   // Admin Auth State
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
@@ -44,7 +46,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Parse Clean URL Pathname & Query Params (/admin, /q=..., /category=..., /year=..., or /movie-name)
+  // Parse Clean URL Pathname & Query Params (/admin, /subdetails/..., /q=..., /category=..., /year=..., or /movie-name)
   useEffect(() => {
     const handleUrlChange = () => {
       const pathname = decodeURIComponent(window.location.pathname.replace(/^\/|\/$/g, ''));
@@ -52,6 +54,7 @@ export default function App() {
       // 0. Admin URL Trigger: /admin or /admin-panel
       if (pathname === 'admin' || pathname === 'admin-panel') {
         setSelectedMovie(null);
+        setSubDlMovie(null);
         if (isAdminLoggedIn) {
           setShowAdmin(true);
         } else {
@@ -60,15 +63,30 @@ export default function App() {
         return;
       }
 
-      // 1. Search Query Sync: /q=keyword
+      // 1. Subtitle Download Flow Trigger: /subdetails/movie-slug or /subdlmovie/movie-slug
+      if (pathname.startsWith('subdetails/') || pathname.startsWith('subdlmovie/')) {
+        const movieSlug = pathname.replace(/^subdetails\/|^subdlmovie\//, '');
+        const found = movies.find(m => {
+          const slug = m.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          return slug === movieSlug || m.id?.toString() === movieSlug;
+        });
+        if (found) {
+          setSubDlMovie(found);
+          setSelectedMovie(null);
+        }
+        return;
+      }
+
+      // 2. Search Query Sync: /q=keyword
       if (pathname.startsWith('q=')) {
         const query = pathname.replace('q=', '');
         setSearchTerm(query);
         setSelectedMovie(null);
+        setSubDlMovie(null);
         return;
       }
 
-      // 2. Category Pill Sync: /category=cat_name
+      // 3. Category Pill Sync: /category=cat_name
       if (pathname.startsWith('category=')) {
         const catSlug = pathname.replace('category=', '');
         if (catSlug === 'tv-series' || catSlug === 'all_series') setSelectedCategory('all_series');
@@ -79,18 +97,20 @@ export default function App() {
           setSelectedCategory(matchingCat);
         }
         setSelectedMovie(null);
+        setSubDlMovie(null);
         return;
       }
 
-      // 3. Year Selector Sync: /year=2026
+      // 4. Year Selector Sync: /year=2026
       if (pathname.startsWith('year=')) {
         const yr = pathname.replace('year=', '');
         setSelectedYear(yr);
         setSelectedMovie(null);
+        setSubDlMovie(null);
         return;
       }
 
-      // 4. Direct Movie Page Sync: /movie-name
+      // 5. Direct Movie Page Sync: /movie-name
       if (pathname && !pathname.startsWith('q=') && !pathname.startsWith('category=') && !pathname.startsWith('year=')) {
         const found = movies.find(m => {
           const slug = m.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -98,11 +118,14 @@ export default function App() {
         });
         if (found) {
           setSelectedMovie(found);
+          setSubDlMovie(null);
         } else {
           setSelectedMovie(null);
+          setSubDlMovie(null);
         }
       } else {
         setSelectedMovie(null);
+        setSubDlMovie(null);
       }
     };
 
@@ -118,6 +141,14 @@ export default function App() {
     } else {
       setShowAdminLogin(true);
     }
+  };
+
+  // Handle Subtitle Download Flow Open
+  const handleOpenSubDl = (movie) => {
+    const slug = movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    window.history.pushState({}, '', `/subdetails/${slug}`);
+    setSubDlMovie(movie);
+    setSelectedMovie(null);
   };
 
   // Handle Category Selection with Live URL Sync (/category=name)
@@ -219,14 +250,22 @@ export default function App() {
       {/* Main Content Container */}
       <main className="flex-1 pb-16">
         
-        {/* If Movie is selected, render full-page Movie Details with clean URL (/movie-name) */}
-        {selectedMovie ? (
+        {/* If Subtitle Download Flow is active, render 3-step Subtitle Download View */}
+        {subDlMovie ? (
+          <SubtitleDownloadModal
+            movie={subDlMovie}
+            onClose={() => {
+              setSubDlMovie(null);
+              window.history.pushState({}, '', '/');
+            }}
+          />
+        ) : selectedMovie ? (
+          /* If Movie is selected, render full-page Movie Details with clean URL (/movie-name) */
           <MovieDetailModal
             movie={selectedMovie}
             onClose={() => handleSelectMovie(null)}
-            onOpenWhatsAppDl={(m) => {
-              setWhatsappDlMovie(m);
-            }}
+            onOpenWhatsAppDl={(m) => setWhatsappDlMovie(m)}
+            onOpenSubDl={(m) => handleOpenSubDl(m)}
           />
         ) : (
           <>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Star, Clock, Calendar, Download, MessageCircle, Play, Film, Globe, User, Subtitles, ExternalLink, Eye, MessageSquare, Send, Share2, Bookmark, Check } from 'lucide-react';
 
-export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl }) {
+export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onOpenSubDl }) {
   if (!movie) return null;
 
   const [activeStream, setActiveStream] = useState(false);
@@ -334,14 +334,13 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl }) {
               </div>
             </div>
 
-            <a
-              href={movie.subUrl || '#'}
-              target="_blank"
-              rel="noreferrer"
-              className="px-6 py-2.5 rounded-xl bg-gray-900 hover:bg-yellow-500 text-gray-300 hover:text-black font-extrabold text-xs flex items-center space-x-2 transition-all border border-gray-800"
+            <button
+              onClick={() => onOpenSubDl(movie)}
+              className="px-6 py-2.5 rounded-xl bg-[#F5C518] hover:bg-yellow-400 text-black font-extrabold text-xs flex items-center space-x-2 transition-all shadow-md cursor-pointer"
             >
               <Download className="w-4 h-4" />
-            </a>
+              <span>Download Subtitle</span>
+            </button>
           </div>
         </div>
 
