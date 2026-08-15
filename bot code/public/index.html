@@ -75,6 +75,13 @@
         </div>
       </div>
       
+      <button
+        onclick="resetSession()"
+        class="w-full py-2.5 px-4 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-300 hover:text-white text-xs font-bold transition shadow"
+      >
+        🔄 Reset Session & Get New QR Code
+      </button>
+
       <p class="text-[11px] text-gray-400">QR code auto-refreshes every few seconds on this web page.</p>
     </div>
 
@@ -141,6 +148,18 @@
       qrBtn.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all text-gray-400 hover:text-white';
       pairContent.classList.remove('hidden');
       qrContent.classList.add('hidden');
+    }
+  }
+
+  async function resetSession() {
+    if (!confirm('Are you sure you want to reset session and generate a new QR Code?')) return;
+    try {
+      const res = await fetch('/api/reset');
+      const data = await res.json();
+      alert(data.message || 'Session reset successfully!');
+      fetchQrCode();
+    } catch (e) {
+      alert('Error resetting session: ' + e.message);
     }
   }
 

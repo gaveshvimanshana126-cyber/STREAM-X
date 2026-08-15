@@ -223,9 +223,24 @@ async function startBot() {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       console.log(`⚠️ Connection closed (code ${statusCode}), reconnecting: ${shouldReconnect}`);
-      if (shouldReconnect) {
-        setTimeout(startBot, 3000);
+
+      // If disconnected due to invalid session or logged out, wipe session so QR code regenerates
+      if (statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 403 || statusCode === 405) {
+        console.log('🧹 Clearing invalid session data from MongoDB to force fresh QR code generation...');
+        try {
+          if (mongoose.connection.readyState === 1) {
+            await BaileysAuth.deleteMany({});
+          }
+          const authFolder = path.join(__dirname, 'auth_info_baileys');
+          if (fs.existsSync(authFolder)) {
+            fs.rmSync(authFolder, { recursive: true, force: true });
+          }
+        } catch (clearErr) {
+          console.error('Error clearing session:', clearErr.message);
+        }
       }
+
+      setTimeout(startBot, 3000);
     } else if (connection === 'open') {
       isConnected = true;
       latestQRImage = null;
@@ -500,6 +515,28 @@ app.get('/api/qr', (req, res) => {
     connected: isConnected,
     qrImage: latestQRImage
   });
+});
+
+// Force Session Reset Endpoint to generate fresh QR code instantly
+app.all('/api/reset', async (req, res) => {
+  try {
+    isConnected = false;
+    latestQRImage = null;
+    if (mongoose.connection.readyState === 1) {
+      await BaileysAuth.deleteMany({});
+    }
+    const authFolder = path.join(__dirname, 'auth_info_baileys');
+    if (fs.existsSync(authFolder)) {
+      fs.rmSync(authFolder, { recursive: true, force: true });
+    }
+    if (sock) {
+      try { sock.end(); } catch (e) {}
+    }
+    setTimeout(startBot, 1000);
+    return res.json({ success: true, message: 'Session reset! Generating fresh QR code in 3 seconds...' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Reset failed: ' + err.message });
+  }
 });
 
 app.post('/api/pair', async (req, res) => {

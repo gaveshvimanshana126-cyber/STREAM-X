@@ -298,26 +298,28 @@ export default function App() {
         </div>
       )}
 
-      {/* Top Notice Marquee Banner */}
-      <NoticeBanner />
-
-      {/* Navigation Bar */}
-      <Navbar
-        searchTerm={searchTerm}
-        setSearchTerm={handleSearchChange}
-        onOpenAuth={() => setShowAuthModal(true)}
-        onOpenProfile={() => setShowProfileModal(true)}
-        onOpenNotifs={() => setShowNotifsPanel(true)}
-        onOpenRequests={() => setShowRequestModal(true)}
-        onOpenUpcoming={() => setShowUpcomingPage(true)}
-        onOpenGenres={() => setShowGenresPage(true)}
-        onOpenAbout={() => setShowAboutPage(true)}
-        onOpenAdmin={() => {
-          if (currentUser?.isAdmin) setShowAdmin(true);
-          else setShowAdminLogin(true);
-        }}
-        currentUser={currentUser}
-      />
+      {/* Top Notice Marquee Banner & Navigation Bar (Show ONLY on Homepage) */}
+      {!downloadFlowData && !selectedMovie && (
+        <>
+          <NoticeBanner />
+          <Navbar
+            searchTerm={searchTerm}
+            setSearchTerm={handleSearchChange}
+            onOpenAuth={() => setShowAuthModal(true)}
+            onOpenProfile={() => setShowProfileModal(true)}
+            onOpenNotifs={() => setShowNotifsPanel(true)}
+            onOpenRequests={() => setShowRequestModal(true)}
+            onOpenUpcoming={() => setShowUpcomingPage(true)}
+            onOpenGenres={() => setShowGenresPage(true)}
+            onOpenAbout={() => setShowAboutPage(true)}
+            onOpenAdmin={() => {
+              if (currentUser?.isAdmin) setShowAdmin(true);
+              else setShowAdminLogin(true);
+            }}
+            currentUser={currentUser}
+          />
+        </>
+      )}
 
       {/* Main Container */}
       <main className="pb-16">

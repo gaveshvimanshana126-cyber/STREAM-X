@@ -132,7 +132,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0A0A0A] overflow-y-auto w-full min-h-screen text-gray-100 font-['Nunito',sans-serif] animate-fadeIn select-none relative">
+    <div className="min-h-screen bg-[#0A0A0A] overflow-y-auto w-full text-gray-100 font-['Nunito',sans-serif] animate-fadeIn select-none relative z-10">
       
       {/* Animated Film-Grain Overlay from index (45).html */}
       <div className="film-grain-overlay pointer-events-none"></div>
