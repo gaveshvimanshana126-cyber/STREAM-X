@@ -93,14 +93,23 @@ export default function WhatsAppDeliveryModal({ movie, selectedQuality = '720p',
 
         {/* Success Alert */}
         {success ? (
-          <div className="p-4 bg-emerald-950/80 border border-emerald-500/60 rounded-2xl text-center space-y-2">
+          <div className="p-4 bg-emerald-950/80 border border-emerald-500/60 rounded-2xl text-center space-y-3">
             <div className="w-10 h-10 rounded-full bg-emerald-500 text-black flex items-center justify-center mx-auto font-black">
               <Check className="w-6 h-6" />
             </div>
             <h4 className="text-xs font-bold text-white">ඉල්ලීම සාර්ථකව යවන ලදී!</h4>
             <p className="text-[11px] text-emerald-300 leading-relaxed">
-              Bot එක විසින් ඔබගේ WhatsApp අංකය (<strong className="text-white">+{phone}</strong>) වෙත චිත්‍රපටය කෙලින්ම යවනු ඇත. 🚀
+              Bot එක විසින් ඔබගේ චිත්‍රපටය අපගේ <strong className="text-white">Cineflix Official WhatsApp Group</strong> එක වෙත කෙලින්ම එවනු ඇත! 🚀
             </p>
+            <a
+              href="https://chat.whatsapp.com/E81OYFeX3nW9meDUAt9a7B"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center justify-center space-x-2 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-lg transition"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>JOIN CINEFLIX WHATSAPP GROUP</span>
+            </a>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
