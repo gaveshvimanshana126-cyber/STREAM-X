@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search, User, Image, Subtitles, Bell, ThumbsUp, BarChart2, MessageCircle, Layers } from 'lucide-react';
+import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search, User, Image, Subtitles, Bell, ThumbsUp, BarChart2, MessageCircle, Layers, Crown, Sparkles, Youtube, ShieldAlert } from 'lucide-react';
 import { rtdbGet, rtdbSet, rtdbPush, rtdbRemove } from '../services/firebase';
+import { searchTmdbMulti, fetchMovieTmdbDetails, TMDB_IMG } from '../services/tmdb';
 
 export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout }) {
   const [editingMovieId, setEditingMovieId] = useState(null);
@@ -11,46 +12,63 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
   const [notifMsg, setNotifMsg] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // TMDb Live Auto-Fill Search State (from index (43).html)
+  const [tmdbQuery, setTmdbQuery] = useState('');
+  const [tmdbSearchResults, setTmdbSearchResults] = useState([]);
+  const [isTmdbSearching, setIsTmdbSearching] = useState(false);
+  const [tmdbStatusMsg, setTmdbStatusMsg] = useState('');
+
   // WhatsApp Bot Settings State
   const [waNumber, setWaNumber] = useState(localStorage.getItem('cf_wa_num') || '+94771234567');
   const [waSavedSuccess, setWaSavedSuccess] = useState(false);
 
-  // Form State
+  // Complete Form State (Matching index (43).html)
   const [movieForm, setMovieForm] = useState({
+    tmdbId: '',
     title: '',
     year: new Date().getFullYear().toString(),
     type: 'movie',
+    seriesStatus: 'ongoing', // 'ongoing' | 'complete'
+    quality: 'WEB-RIP',
     rating: '7.5',
-    quality: 'WEB-DL',
-    genre: 'Action,Thriller',
-    subBy: 'Cineflix Sub',
-    runtime: '2h 18m',
+    genre: 'Action, Drama',
+    runtime: '2h 15m',
     country: 'USA',
+    describedBy: 'CINEFLIX',
     director: '',
     stars: '',
     cast: '',
-    stills: '',
     poster: '',
     backdrop: '',
     description: '',
+    trailer: '',
+    screenshots: '',
+    isVip: false,
+    showSubNotice: true,
+    isAdult: false,
     streamUrl: '',
     streamUrl2: '',
-    subUrl: ''
+    streamUrl3: '',
+    subBy: 'Cineflix Sub',
+    subUrl: '',
+    dlSubUrl: '',
+    collection: '',
+    collectionOrder: ''
   });
 
   // Dynamic Unlimited Download Links State
   const [downloadsList, setDownloadsList] = useState([
-    { res: '720p', size: '1.46GB', quality: 'WEB-DL', srv1: '', pd720: '', tgLink: '' },
-    { res: '1080p', size: '2.12GB', quality: 'WEB-DL', srv1: '', pd1080: '', tgLink: '' }
+    { res: '720p', size: '1.46GB', quality: 'WEB-RIP', srv1: '', pd720: '', tgLink: '' },
+    { res: '1080p', size: '2.12GB', quality: 'WEB-RIP', srv1: '', pd1080: '', tgLink: '' }
   ]);
 
-  // Dynamic Unlimited Seasons & Episodes State (For TV Series)
+  // Dynamic Unlimited Seasons & Episodes State (For TV Series from index (43).html)
   const [seasonsList, setSeasonsList] = useState([
     {
       season: 1,
       seasonName: 'Season 1',
       episodes: [
-        { ep: 1, title: 'Episode 1', airDate: '', runtime: '24m', srv1: '', pd720: '' }
+        { ep: 1, title: 'Episode 1', airDate: '', runtime: '24m', srv1: '', srv2: '', pd720: '', pd1080: '', tgLink: '', subUrl: '' }
       ]
     }
   ]);
@@ -99,36 +117,107 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
     } catch (e) { }
   };
 
+  // TMDb Auto-Fill Search Handler (from index (43).html)
+  const handleSearchTMDB = async () => {
+    if (!tmdbQuery.trim()) return;
+    setIsTmdbSearching(true);
+    setTmdbStatusMsg('Searching TMDb database...');
+    try {
+      const results = await searchTmdbMulti(tmdbQuery.trim());
+      setTmdbSearchResults(results);
+      if (results.length === 0) {
+        setTmdbStatusMsg('No results found on TMDb.');
+      } else {
+        setTmdbStatusMsg(`Found ${results.length} TMDb items. Click any item to auto-fill the form!`);
+      }
+    } catch (err) {
+      setTmdbStatusMsg('Error searching TMDb.');
+    } finally {
+      setIsTmdbSearching(false);
+    }
+  };
+
+  // Auto-Fill Form from TMDb Item Click (from index (43).html)
+  const handleSelectTmdbItem = async (item) => {
+    setTmdbStatusMsg(`Loading full details for ${item.title || item.name}...`);
+    try {
+      const isTv = item.media_type === 'tv' || item.first_air_date;
+      const details = await fetchMovieTmdbDetails({
+        tmdbId: item.id,
+        type: isTv ? 'tv' : 'movie',
+        title: item.title || item.name,
+        year: (item.release_date || item.first_air_date || '').substring(0, 4)
+      });
+
+      if (details) {
+        setMovieForm(prev => ({
+          ...prev,
+          tmdbId: item.id,
+          title: item.title || item.name,
+          year: (item.release_date || item.first_air_date || new Date().getFullYear()).toString().substring(0, 4),
+          type: isTv ? 'tv' : 'movie',
+          rating: item.vote_average ? item.vote_average.toFixed(1) : '7.5',
+          genre: details.genres || item.genre_ids?.join(', ') || 'Action, Drama',
+          runtime: details.runtime || '2h 15m',
+          country: details.country || 'USA',
+          director: details.director || '',
+          stars: details.stars || '',
+          cast: details.stars || '',
+          poster: details.poster || (item.poster_path ? `${TMDB_IMG}w500${item.poster_path}` : ''),
+          backdrop: details.backdrop || (item.backdrop_path ? `${TMDB_IMG}w1280${item.backdrop_path}` : ''),
+          description: item.overview || details.overview || '',
+          screenshots: Array.isArray(details.stillsList) ? details.stillsList.join('\n') : ''
+        }));
+
+        setTmdbStatusMsg('✓ Form auto-filled successfully from TMDb!');
+        setTmdbSearchResults([]);
+      }
+    } catch (e) {
+      setTmdbStatusMsg('Error auto-filling from TMDb.');
+    }
+  };
+
   const handleEditMovieClick = (movie) => {
     setEditingMovieId(movie.id);
 
     setMovieForm({
+      tmdbId: movie.tmdbId || '',
       title: movie.title || '',
       year: movie.year || new Date().getFullYear().toString(),
       type: movie.type || 'movie',
+      seriesStatus: movie.seriesStatus || 'ongoing',
+      quality: movie.quality || 'WEB-RIP',
       rating: movie.rating || '7.5',
-      quality: movie.quality || 'WEB-DL',
-      genre: movie.genre || 'Action,Thriller',
-      subBy: movie.subBy || 'Cineflix Sub',
-      runtime: movie.runtime || '2h 18m',
+      genre: movie.genre || 'Action, Drama',
+      runtime: movie.runtime || '2h 15m',
       country: movie.country || 'USA',
+      describedBy: movie.describedBy || 'CINEFLIX',
       director: movie.director || '',
       stars: movie.stars || '',
       cast: movie.cast || '',
-      stills: Array.isArray(movie.stills) ? movie.stills.join(', ') : (movie.stills || ''),
       poster: movie.poster || '',
       backdrop: movie.backdrop || '',
       description: movie.description || '',
+      trailer: movie.trailer || '',
+      screenshots: Array.isArray(movie.stills) ? movie.stills.join('\n') : (movie.screenshots || ''),
+      isVip: !!movie.isVip,
+      showSubNotice: movie.showSubNotice !== false,
+      isAdult: !!movie.isAdult,
       streamUrl: movie.streamUrl || '',
       streamUrl2: movie.streamUrl2 || '',
-      subUrl: movie.subUrl || ''
+      streamUrl3: movie.streamUrl3 || '',
+      subBy: movie.subBy || 'Cineflix Sub',
+      subUrl: movie.subUrl || '',
+      dlSubUrl: movie.dlSubUrl || '',
+      collection: movie.collection || '',
+      collectionOrder: movie.collectionOrder || ''
     });
 
     if (movie.downloads && Array.isArray(movie.downloads) && movie.downloads.length > 0) {
       setDownloadsList(movie.downloads.map(d => ({
         res: d.res || '720p',
         size: d.size || '1.46GB',
-        quality: d.quality || movie.quality || 'WEB-DL',
+        quality: d.quality || movie.quality || 'WEB-RIP',
         srv1: d.srv1 || d.url || '',
         pd720: d.pd720 || d.srv2 || '',
         pd1080: d.pd1080 || d.srv2 || '',
@@ -146,36 +235,47 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
   const handleResetForm = () => {
     setEditingMovieId(null);
     setMovieForm({
+      tmdbId: '',
       title: '',
       year: new Date().getFullYear().toString(),
       type: 'movie',
+      seriesStatus: 'ongoing',
+      quality: 'WEB-RIP',
       rating: '7.5',
-      quality: 'WEB-DL',
-      genre: 'Action,Thriller',
-      subBy: 'Cineflix Sub',
-      runtime: '2h 18m',
+      genre: 'Action, Drama',
+      runtime: '2h 15m',
       country: 'USA',
+      describedBy: 'CINEFLIX',
       director: '',
       stars: '',
       cast: '',
-      stills: '',
       poster: '',
       backdrop: '',
       description: '',
+      trailer: '',
+      screenshots: '',
+      isVip: false,
+      showSubNotice: true,
+      isAdult: false,
       streamUrl: '',
       streamUrl2: '',
-      subUrl: ''
+      streamUrl3: '',
+      subBy: 'Cineflix Sub',
+      subUrl: '',
+      dlSubUrl: '',
+      collection: '',
+      collectionOrder: ''
     });
     setDownloadsList([
-      { res: '720p', size: '1.46GB', quality: 'WEB-DL', srv1: '', pd720: '', tgLink: '' },
-      { res: '1080p', size: '2.12GB', quality: 'WEB-DL', srv1: '', pd1080: '', tgLink: '' }
+      { res: '720p', size: '1.46GB', quality: 'WEB-RIP', srv1: '', pd720: '', tgLink: '' },
+      { res: '1080p', size: '2.12GB', quality: 'WEB-RIP', srv1: '', pd1080: '', tgLink: '' }
     ]);
     setSeasonsList([
       {
         season: 1,
         seasonName: 'Season 1',
         episodes: [
-          { ep: 1, title: 'Episode 1', airDate: '', runtime: '24m', srv1: '', pd720: '' }
+          { ep: 1, title: 'Episode 1', airDate: '', runtime: '24m', srv1: '', srv2: '', pd720: '', pd1080: '', tgLink: '', subUrl: '' }
         ]
       }
     ]);
@@ -185,7 +285,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
   const handleAddDownloadLink = () => {
     setDownloadsList([
       ...downloadsList,
-      { res: '480p', size: '700MB', quality: movieForm.quality || 'WEB-DL', srv1: '', pd720: '', tgLink: '' }
+      { res: '480p', size: '700MB', quality: movieForm.quality || 'WEB-RIP', srv1: '', pd720: '', tgLink: '' }
     ]);
   };
 
@@ -200,7 +300,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
     setDownloadsList(updated);
   };
 
-  // Handlers for Unlimited Seasons & Episodes
+  // Handlers for Unlimited Seasons & Episodes (from index (43).html)
   const handleAddSeason = () => {
     const nextSeasonNum = seasonsList.length + 1;
     setSeasonsList([
@@ -209,7 +309,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
         season: nextSeasonNum,
         seasonName: `Season ${nextSeasonNum}`,
         episodes: [
-          { ep: 1, title: 'Episode 1', airDate: '', runtime: '24m', srv1: '', pd720: '' }
+          { ep: 1, title: 'Episode 1', airDate: '', runtime: '24m', srv1: '', srv2: '', pd720: '', pd1080: '', tgLink: '', subUrl: '' }
         ]
       }
     ]);
@@ -224,7 +324,11 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
       airDate: '',
       runtime: '24m',
       srv1: '',
-      pd720: ''
+      srv2: '',
+      pd720: '',
+      pd1080: '',
+      tgLink: '',
+      subUrl: ''
     });
     setSeasonsList(updated);
   };
@@ -246,32 +350,44 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
     e.preventDefault();
     if (!movieForm.title) return alert('Movie title is required!');
 
-    const stillsArray = movieForm.stills
-      ? movieForm.stills.split(',').map(s => s.trim()).filter(Boolean)
+    const stillsArray = movieForm.screenshots
+      ? movieForm.screenshots.split('\n').map(s => s.trim()).filter(Boolean)
       : [movieForm.backdrop, movieForm.poster].filter(Boolean);
 
     const movieObj = {
+      tmdbId: movieForm.tmdbId,
       title: movieForm.title,
       year: movieForm.year,
       type: movieForm.type,
+      seriesStatus: movieForm.seriesStatus,
       rating: movieForm.rating,
       quality: movieForm.quality,
       genre: movieForm.genre,
-      subBy: movieForm.subBy,
       runtime: movieForm.runtime,
       country: movieForm.country,
+      describedBy: movieForm.describedBy,
       director: movieForm.director,
       stars: movieForm.stars,
       cast: movieForm.cast,
       stills: stillsArray,
+      screenshots: movieForm.screenshots,
       poster: movieForm.poster,
       backdrop: movieForm.backdrop,
       description: movieForm.description,
+      trailer: movieForm.trailer,
+      isVip: movieForm.isVip,
+      showSubNotice: movieForm.showSubNotice,
+      isAdult: movieForm.isAdult,
       streamUrl: movieForm.streamUrl,
       streamUrl2: movieForm.streamUrl2,
+      streamUrl3: movieForm.streamUrl3,
       downloads: downloadsList,
       seasons: movieForm.type === 'tv' ? seasonsList : [],
+      subBy: movieForm.subBy,
       subUrl: movieForm.subUrl,
+      dlSubUrl: movieForm.dlSubUrl,
+      collection: movieForm.collection,
+      collectionOrder: movieForm.collectionOrder,
       addedAt: Date.now()
     };
 
@@ -330,7 +446,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
             <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition text-gray-400 hover:text-white">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-xl font-black tracking-wider uppercase text-white">ADMIN DASHBOARD</h1>
+            <h1 className="text-xl font-black tracking-wider uppercase text-white font-['Bebas_Neue']">CINEFLIX ADMIN DASHBOARD</h1>
           </div>
 
           <button onClick={onLogout} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 border border-red-600/40 rounded-xl text-xs font-bold hover:bg-red-600 hover:text-white transition">
@@ -443,6 +559,64 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                 )}
               </div>
 
+              {/* TMDB LIVE AUTO-FILL SEARCH CARD (Matching index (43).html) */}
+              <div className="p-4 bg-red-950/20 border border-red-500/30 rounded-2xl space-y-3">
+                <div className="flex items-center space-x-2 text-red-500 font-extrabold text-xs tracking-wider uppercase font-['Bebas_Neue'] text-sm">
+                  <Sparkles className="w-4 h-4" />
+                  <span>🎬 TMDB API — AUTO FILL DETAILS</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Movie or TV Show name (e.g. Dhamaka / High School DxD)..."
+                    value={tmdbQuery}
+                    onChange={(e) => setTmdbQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchTMDB()}
+                    className="flex-1 bg-black/60 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSearchTMDB}
+                    disabled={isTmdbSearching}
+                    className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>{isTmdbSearching ? 'Searching...' : 'Search'}</span>
+                  </button>
+                </div>
+
+                {tmdbStatusMsg && (
+                  <p className="text-[11px] text-gray-400 font-bold">{tmdbStatusMsg}</p>
+                )}
+
+                {/* TMDb Search Results Dropdown List */}
+                {tmdbSearchResults.length > 0 && (
+                  <div className="max-h-56 overflow-y-auto space-y-2 pr-1 pt-1">
+                    {tmdbSearchResults.map((m) => (
+                      <div
+                        key={m.id}
+                        onClick={() => handleSelectTmdbItem(m)}
+                        className="p-2.5 bg-black/60 hover:bg-red-950/40 border border-white/10 hover:border-red-500/50 rounded-xl flex items-center space-x-3 cursor-pointer transition"
+                      >
+                        <img
+                          src={m.poster_path ? `${TMDB_IMG}w92${m.poster_path}` : 'https://via.placeholder.com/40x60'}
+                          alt={m.title || m.name}
+                          className="w-10 h-14 object-cover rounded bg-gray-900 border border-gray-800"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h5 className="text-xs font-bold text-white truncate">{m.title || m.name}</h5>
+                          <span className="text-[10px] text-gray-400">
+                            {(m.release_date || m.first_air_date || '').substring(0, 4)} • {(m.media_type || 'movie').toUpperCase()}
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-1 bg-red-600 text-white text-[9px] font-black rounded-lg uppercase">Auto Fill</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {savedSuccess && (
                 <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-400" /> Item saved successfully to Database!
@@ -459,7 +633,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                       placeholder="e.g. Dhamaka / High School DxD"
                       value={movieForm.title}
                       onChange={(e) => setMovieForm({ ...movieForm, title: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600 font-bold"
                     />
                   </div>
 
@@ -481,7 +655,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                     <select
                       value={movieForm.type}
                       onChange={(e) => setMovieForm({ ...movieForm, type: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600 font-bold text-red-400"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600 font-bold text-red-400 cursor-pointer"
                     >
                       <option value="movie">Movie</option>
                       <option value="tv">TV Series / Anime</option>
@@ -490,13 +664,20 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase">Quality Badge</label>
-                    <input
-                      type="text"
-                      placeholder="WEB-DL / 1080P"
+                    <select
                       value={movieForm.quality}
                       onChange={(e) => setMovieForm({ ...movieForm, quality: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
-                    />
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600 cursor-pointer"
+                    >
+                      <option value="WEB-RIP">WEB-RIP</option>
+                      <option value="WEB-DL">WEB-DL</option>
+                      <option value="BLURAY">BLURAY</option>
+                      <option value="HD-RIP">HD-RIP</option>
+                      <option value="CAM">CAM</option>
+                      <option value="CAMCOPY">CAMCOPY</option>
+                      <option value="ORIGINAL WEB">ORIGINAL WEB</option>
+                      <option value="4K">4K</option>
+                    </select>
                   </div>
 
                   <div className="space-y-1">
@@ -511,15 +692,41 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase">Genres (Comma separated)</label>
-                  <input
-                    type="text"
-                    placeholder="Action, Thriller, Drama"
-                    value={movieForm.genre}
-                    onChange={(e) => setMovieForm({ ...movieForm, genre: e.target.value })}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Genres (Comma separated)</label>
+                    <input
+                      type="text"
+                      placeholder="Action, Drama, Thriller"
+                      value={movieForm.genre}
+                      onChange={(e) => setMovieForm({ ...movieForm, genre: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Runtime</label>
+                    <input
+                      type="text"
+                      placeholder="2h 15m"
+                      value={movieForm.runtime}
+                      onChange={(e) => setMovieForm({ ...movieForm, runtime: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Described By (Admin)</label>
+                    <select
+                      value={movieForm.describedBy}
+                      onChange={(e) => setMovieForm({ ...movieForm, describedBy: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600 cursor-pointer"
+                    >
+                      <option value="CINEFLIX">CINEFLIX</option>
+                      <option value="P.KAVEESHA">P.KAVEESHA</option>
+                      <option value="GAVESH VIMANSHANA">GAVESH VIMANSHANA</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -546,12 +753,101 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase">Stream Player URL (Server 1)</label>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Director</label>
                     <input
                       type="text"
-                      placeholder="https://..."
+                      placeholder="Director Name"
+                      value={movieForm.director}
+                      onChange={(e) => setMovieForm({ ...movieForm, director: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Stars / Cast</label>
+                    <input
+                      type="text"
+                      placeholder="Actor 1, Actor 2, Actor 3"
+                      value={movieForm.stars}
+                      onChange={(e) => setMovieForm({ ...movieForm, stars: e.target.value, cast: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Country</label>
+                    <input
+                      type="text"
+                      placeholder="USA / India"
+                      value={movieForm.country}
+                      onChange={(e) => setMovieForm({ ...movieForm, country: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Trailer URL (YouTube)</label>
+                    <input
+                      type="text"
+                      placeholder="https://youtube.com/watch?v=..."
+                      value={movieForm.trailer}
+                      onChange={(e) => setMovieForm({ ...movieForm, trailer: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Movie Stills Screenshots (One URL per line)</label>
+                    <textarea
+                      rows={2}
+                      placeholder="https://...img1.jpg&#10;https://...img2.jpg"
+                      value={movieForm.screenshots}
+                      onChange={(e) => setMovieForm({ ...movieForm, screenshots: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                {/* VIP & ADULT CONTENT TOGGLES FROM INDEX (43).HTML */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <label className="p-3 bg-amber-950/20 border border-amber-500/40 rounded-xl flex items-center justify-between cursor-pointer">
+                    <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
+                      <Crown className="w-4 h-4" />
+                      <span>VIP Premium Content</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={movieForm.isVip}
+                      onChange={(e) => setMovieForm({ ...movieForm, isVip: e.target.checked })}
+                      className="w-4 h-4 accent-amber-400 cursor-pointer"
+                    />
+                  </label>
+
+                  <label className="p-3 bg-red-950/20 border border-red-500/40 rounded-xl flex items-center justify-between cursor-pointer">
+                    <div className="flex items-center space-x-2 text-red-400 font-bold text-xs">
+                      <ShieldAlert className="w-4 h-4" />
+                      <span>18+ Restricted Content</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={movieForm.isAdult}
+                      onChange={(e) => setMovieForm({ ...movieForm, isAdult: e.target.checked })}
+                      className="w-4 h-4 accent-red-600 cursor-pointer"
+                    />
+                  </label>
+                </div>
+
+                {/* STREAM PLAYERS SERVERS 1, 2, 3 FROM INDEX (43).HTML */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Stream Server 1 (Main HD)</label>
+                    <input
+                      type="text"
+                      placeholder="https://...mp4"
                       value={movieForm.streamUrl}
                       onChange={(e) => setMovieForm({ ...movieForm, streamUrl: e.target.value })}
                       className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
@@ -559,21 +855,75 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase">Sinhala Subtitle (.SRT) URL</label>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Stream Server 2 (Backup)</label>
                     <input
                       type="text"
-                      placeholder="https://.../sub.srt"
-                      value={movieForm.subUrl}
-                      onChange={(e) => setMovieForm({ ...movieForm, subUrl: e.target.value })}
+                      placeholder="https://...mp4"
+                      value={movieForm.streamUrl2}
+                      onChange={(e) => setMovieForm({ ...movieForm, streamUrl2: e.target.value })}
                       className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Stream Server 3 (Advanced CC)</label>
+                    <input
+                      type="text"
+                      placeholder="https://...mp4"
+                      value={movieForm.streamUrl3}
+                      onChange={(e) => setMovieForm({ ...movieForm, streamUrl3: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                {/* SUBTITLE SECTIONS FROM INDEX (43).HTML */}
+                <div className="p-4 bg-black/40 border border-yellow-500/30 rounded-2xl space-y-3">
+                  <div className="flex items-center space-x-2 text-yellow-400 font-bold text-xs uppercase tracking-wider">
+                    <Subtitles className="w-4 h-4" />
+                    <span>Subtitle Configuration (Stream & Download Subtitle)</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase">Subtitle By</label>
+                      <input
+                        type="text"
+                        placeholder="Piratelk.com / Paisub.com"
+                        value={movieForm.subBy}
+                        onChange={(e) => setMovieForm({ ...movieForm, subBy: e.target.value })}
+                        className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-yellow-400 uppercase">Stream Subtitle (.SRT - Player Auto Load)</label>
+                      <input
+                        type="text"
+                        placeholder="https://...file.srt"
+                        value={movieForm.subUrl}
+                        onChange={(e) => setMovieForm({ ...movieForm, subUrl: e.target.value })}
+                        className="w-full bg-black/50 border border-yellow-500/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-yellow-400 uppercase">Download Subtitle (.SRT or .ZIP Link)</label>
+                      <input
+                        type="text"
+                        placeholder="https://...subtitle.zip"
+                        value={movieForm.dlSubUrl}
+                        onChange={(e) => setMovieForm({ ...movieForm, dlSubUrl: e.target.value })}
+                        className="w-full bg-black/50 border border-yellow-500/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-500"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* DYNAMIC UNLIMITED DOWNLOAD LINKS MANAGER */}
                 <div className="p-4 bg-black/40 border border-white/10 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-extrabold text-red-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <h4 className="text-xs font-extrabold text-red-500 uppercase tracking-wider flex items-center gap-1.5 font-['Bebas_Neue'] text-sm">
                       <Download className="w-4 h-4" /> Download Links / Qualities Manager ({downloadsList.length})
                     </h4>
                     <button
@@ -615,7 +965,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                         />
                         <input
                           type="text"
-                          placeholder="Direct / Pixeldrain URL"
+                          placeholder="Direct Server Download URL"
                           value={dl.srv1 || dl.pd720 || dl.pd1080 || ''}
                           onChange={(e) => handleUpdateDownloadLink(idx, 'srv1', e.target.value)}
                           className="bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-red-500"
@@ -625,13 +975,26 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                   ))}
                 </div>
 
-                {/* DYNAMIC UNLIMITED SEASONS & EPISODES MANAGER (FOR TV SERIES) */}
+                {/* DYNAMIC UNLIMITED SEASONS & EPISODES MANAGER (FOR TV SERIES FROM INDEX (43).HTML) */}
                 {movieForm.type === 'tv' && (
                   <div className="p-4 bg-black/40 border border-emerald-500/30 rounded-2xl space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <Tv className="w-4 h-4" /> TV Series Seasons & Episodes Manager ({seasonsList.length} Seasons)
-                      </h4>
+                      <div className="flex items-center space-x-2">
+                        <Tv className="w-4 h-4 text-emerald-400" />
+                        <h4 className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider font-['Bebas_Neue'] text-sm">
+                          TV Series Seasons & Episodes Manager ({seasonsList.length} Seasons)
+                        </h4>
+                      </div>
+
+                      <select
+                        value={movieForm.seriesStatus}
+                        onChange={(e) => setMovieForm({ ...movieForm, seriesStatus: e.target.value })}
+                        className="bg-black/60 border border-emerald-500/40 rounded-lg px-3 py-1 text-xs text-emerald-400 font-bold cursor-pointer"
+                      >
+                        <option value="ongoing">Ongoing (Shows S{seasonsList.length} EP Badge)</option>
+                        <option value="complete">Complete (Shows Complete Badge)</option>
+                      </select>
+
                       <button
                         type="button"
                         onClick={handleAddSeason}
@@ -657,7 +1020,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                           <button
                             type="button"
                             onClick={() => handleAddEpisode(sIdx)}
-                            className="px-2.5 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold"
+                            className="px-2.5 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold cursor-pointer"
                           >
                             + Add Episode
                           </button>
@@ -682,7 +1045,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                               />
                               <input
                                 type="text"
-                                placeholder="Download Link"
+                                placeholder="Direct Download Link"
                                 value={ep.srv1}
                                 onChange={(e) => handleUpdateEpisode(sIdx, eIdx, 'srv1', e.target.value)}
                                 className="bg-black/60 border border-white/10 rounded px-2 py-1 text-[11px] text-white"
@@ -690,7 +1053,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                               <button
                                 type="button"
                                 onClick={() => handleRemoveEpisode(sIdx, eIdx)}
-                                className="text-red-500 text-[10px] font-bold hover:underline justify-self-end"
+                                className="text-red-500 text-[10px] font-bold hover:underline justify-self-end cursor-pointer"
                               >
                                 Delete Ep
                               </button>
@@ -715,7 +1078,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
+                  className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider font-['Bebas_Neue'] text-sm"
                 >
                   <Save className="w-4 h-4" />
                   <span>{editingMovieId ? 'Update Item in Database' : 'Save Item to Database'}</span>
@@ -724,7 +1087,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
             </div>
 
             {/* Catalog List Column */}
-            <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4 flex flex-col h-[780px]">
+            <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4 flex flex-col h-[880px]">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-white text-sm">Catalog List</h3>
                 <span className="text-xs text-gray-400">{filteredMovies.length} items</span>
@@ -752,7 +1115,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleEditMovieClick(m)}
-                        className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition"
+                        className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition cursor-pointer"
                         title="Edit"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -760,7 +1123,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
                       <button
                         onClick={() => handleDeleteMovie(m.id)}
-                        className="p-1.5 bg-red-600/20 hover:bg-red-600 rounded-lg text-red-400 hover:text-white transition"
+                        className="p-1.5 bg-red-600/20 hover:bg-red-600 rounded-lg text-red-400 hover:text-white transition cursor-pointer"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -811,7 +1174,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
               />
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg transition"
+                className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg transition cursor-pointer"
               >
                 Send Broadcast Notification
               </button>

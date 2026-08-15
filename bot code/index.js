@@ -21,7 +21,6 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
 const config = require('./config.json');
 
 // Express App Setup
@@ -137,14 +136,15 @@ async function startBot() {
       const cleanText = text.trim();
       if (!cleanText) return;
 
+      console.log(`📩 Received WhatsApp Message from [${from}]: "${cleanText}"`);
+
       if (cleanText.toLowerCase() === '.ping' || cleanText.toLowerCase() === '.info') {
         await sock.sendMessage(from, { text: config.messages.welcome }, { quoted: msg });
         return;
       }
 
-      if (cleanText.startsWith('.') || cleanText.length > 3) {
-        await handleMovieDownloadRequest(sock, from, cleanText, msg);
-      }
+      // Process any request containing a movie title or code
+      await handleMovieDownloadRequest(sock, from, cleanText, msg);
     } catch (err) {
       console.error('Error handling message:', err);
     }
@@ -153,27 +153,37 @@ async function startBot() {
 
 async function handleMovieDownloadRequest(sock, from, input, msg) {
   const movies = await loadMovies();
-  const searchPattern = input.startsWith('.') ? input.slice(1).trim() : input.trim();
-  
-  const parts = searchPattern.split(/\s+/);
-  const potentialCode = parts[0];
-  
+  if (!movies || movies.length === 0) return;
+
   let targetMovie = null;
-  let targetDownload = null;
-  let requestedRes = '720p';
+  const lowerInput = input.toLowerCase();
 
-  if (searchPattern.includes('480p')) requestedRes = '480p';
-  if (searchPattern.includes('720p')) requestedRes = '720p';
-  if (searchPattern.includes('1080p')) requestedRes = '1080p';
+  // 1. Extract explicit "Movie Code: [code]" or "-[key]" pattern from website message
+  const codeMatch = input.match(/Movie Code:\s*([^\s]+)/i) || input.match(/(-[a-zA-Z0-9_-]{10,})/i);
+  if (codeMatch && codeMatch[1]) {
+    const matchedCode = codeMatch[1].trim();
+    targetMovie = movies.find(m => m.id === matchedCode || m.id === matchedCode.replace(/^-/, ''));
+  }
 
-  targetMovie = movies.find(m => m.id === potentialCode || input.includes(m.id));
-
+  // 2. Direct ID string match
   if (!targetMovie) {
-    const queryWithoutRes = searchPattern.replace(/480p|720p|1080p/gi, '').trim().toLowerCase();
-    targetMovie = movies.find(m => {
-      const titleLower = (m.title || '').toLowerCase();
-      return titleLower.includes(queryWithoutRes) || queryWithoutRes.includes(titleLower);
-    });
+    targetMovie = movies.find(m => m.id && input.includes(String(m.id)));
+  }
+
+  // 3. Title fuzzy match
+  if (!targetMovie) {
+    const queryWithoutRes = lowerInput
+      .replace(/hi cineflix!|i want to download|via whatsapp|movie code:|\./gi, '')
+      .replace(/480p|720p|1080p/gi, '')
+      .replace(/\(\d{4}\)/g, '')
+      .trim();
+
+    if (queryWithoutRes.length >= 2) {
+      targetMovie = movies.find(m => {
+        const titleLower = (m.title || '').toLowerCase();
+        return titleLower.includes(queryWithoutRes) || queryWithoutRes.includes(titleLower);
+      });
+    }
   }
 
   if (!targetMovie) {
@@ -183,11 +193,18 @@ async function handleMovieDownloadRequest(sock, from, input, msg) {
     return;
   }
 
+  // Determine requested resolution
+  let requestedRes = '720p';
+  if (lowerInput.includes('480p')) requestedRes = '480p';
+  if (lowerInput.includes('720p')) requestedRes = '720p';
+  if (lowerInput.includes('1080p')) requestedRes = '1080p';
+
+  let targetDownload = null;
   if (targetMovie.downloads && targetMovie.downloads.length > 0) {
     targetDownload = targetMovie.downloads.find(d => d.res === requestedRes) || targetMovie.downloads[0];
   }
 
-  const downloadUrl = targetDownload?.srv2 || targetDownload?.srv1 || targetDownload?.url;
+  const downloadUrl = targetDownload?.srv1 || targetDownload?.srv2 || targetDownload?.url || targetMovie.subUrl;
   const qualityText = targetDownload?.res || requestedRes;
   const movieTitle = targetMovie.title;
   const movieYear = targetMovie.year ? `(${targetMovie.year})` : '';
@@ -198,7 +215,7 @@ async function handleMovieDownloadRequest(sock, from, input, msg) {
   await sock.sendMessage(from, { text: '✅' });
 
   try {
-    if (downloadUrl && downloadUrl !== '#') {
+    if (downloadUrl && downloadUrl !== '#' && !downloadUrl.includes('pixeldrain.com')) {
       const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.mp4`;
       
       await sock.sendMessage(
@@ -218,12 +235,13 @@ async function handleMovieDownloadRequest(sock, from, input, msg) {
           .replace('{quality}', qualityText)
       });
     } else {
-      const altNotice = `ℹ️ *${movieTitle} (${qualityText})*\n\nDirect WhatsApp streaming file link for this quality is set to mirror mode.\n\n🔗 Telegram Bot Download: ${targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n🌐 Web Stream & Download: ${process.env.WEBSITE_URL || config.websiteUrl}`;
+      const altNotice = `ℹ️ *${movieTitle} (${qualityText})*\n\nDirect Download Link:\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🌐 Web Stream & Download: ${process.env.WEBSITE_URL || config.websiteUrl}`;
       await sock.sendMessage(from, { text: altNotice }, { quoted: msg });
     }
   } catch (downloadErr) {
     console.error('Error delivering movie file:', downloadErr.message);
-    await sock.sendMessage(from, { text: config.messages.error }, { quoted: msg });
+    const fallbackMsg = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n\n🔗 Download Link: ${downloadUrl || targetDownload?.tgLink || config.websiteUrl}`;
+    await sock.sendMessage(from, { text: fallbackMsg }, { quoted: msg });
   }
 }
 

@@ -387,28 +387,31 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
             </div>
 
             {/* Dynamic Download Cards from movie.downloads */}
-            {(movie.downloads && movie.downloads.length > 0 ? movie.downloads : [dl1080, dl720]).map((dl, idx) => (
+            {((movie.downloads && Array.isArray(movie.downloads) && movie.downloads.length > 0)
+              ? movie.downloads
+              : [dl1080, dl720]
+            ).filter(Boolean).map((dl, idx) => (
               <div key={idx} className="p-4 rounded-2xl bg-[#111111] border border-gray-800/90 shadow-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-red-950 to-red-900 border border-red-500/40 flex flex-col items-center justify-center text-center">
-                      <span className="text-[8px] font-extrabold text-red-400 uppercase tracking-wider">{dl.quality || 'HD'}</span>
-                      <span className="text-xs font-black text-white font-['Bebas_Neue']">{dl.res || '720P'}</span>
+                      <span className="text-[8px] font-extrabold text-red-400 uppercase tracking-wider">{dl?.quality || 'HD'}</span>
+                      <span className="text-xs font-black text-white font-['Bebas_Neue']">{dl?.res || '720P'}</span>
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-white">Direct Download <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">DATABASE SERVER</span></h4>
-                      <span className="text-[10px] text-gray-500 font-bold">{dl.size || '1.46GB'}</span>
+                      <span className="text-[10px] text-gray-500 font-bold">{dl?.size || '1.46GB'}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, dl.res || '720p', 'movie') : onOpenSubDl(movie))}
+                    onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, dl?.res || '720p', 'movie') : onOpenSubDl(movie))}
                     className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Direct Download ({dl.res || 'HD'})</span>
+                    <span>Direct Download ({dl?.res || 'HD'})</span>
                   </button>
 
                   <button
