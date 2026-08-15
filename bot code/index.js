@@ -263,14 +263,26 @@ async function startBot() {
       const cleanText = text.trim();
       if (!cleanText) return;
 
-      console.log(`📩 Received WhatsApp Message from [${from}]: "${cleanText}"`);
+      // Ignore standard casual conversational words & punctuation so bot does not reply to normal chat
+      const isCasual = /^(hi|hello|hey|na|ha|ok|okay|thanks|thank you|tnx|gm|gn|yes|no|\.|\?|\!)$/i.test(cleanText);
+      if (isCasual) return;
+
+      // Only respond if it's a website request or explicit bot command (.movie, .dl, .get, Movie Code:)
+      const isWebsiteReq = cleanText.includes('Movie Code:') || cleanText.includes('Hi Cineflix!') || cleanText.includes('via WhatsApp');
+      const isCmd = cleanText.startsWith('.movie') || cleanText.startsWith('.dl') || cleanText.startsWith('.get') || cleanText.startsWith('.find') || cleanText.startsWith('.search') || cleanText === '.info' || cleanText === '.ping';
+
+      if (!isWebsiteReq && !isCmd) {
+        return; // Ignore normal chat messages!
+      }
+
+      console.log(`📩 Received Valid WhatsApp Bot Command from [${from}]: "${cleanText}"`);
 
       if (cleanText.toLowerCase() === '.ping' || cleanText.toLowerCase() === '.info') {
         await sock.sendMessage(from, { text: config.messages.welcome }, { quoted: msg });
         return;
       }
 
-      // Process any request containing a movie title or code
+      // Process movie download request
       await handleMovieDownloadRequest(sock, from, cleanText, msg);
     } catch (err) {
       console.error('Error handling message:', err);
@@ -337,31 +349,34 @@ async function processFirebaseBotQueue() {
       await sock.sendMessage(jid, { text: msg4 });
       await delay(2000);
 
-      // Step 5: Deliver Document File (.mp4) or Direct Download Link
+      // Step 5: Deliver Document File (.mp4/.mkv) up to 2GB (2048 MB) or Direct Link for > 2GB
       let documentSent = false;
-      if (downloadUrl && downloadUrl !== '#' && downloadUrl.startsWith('http')) {
-        const isDirectFile = downloadUrl.match(/\.(mp4|mkv|avi|mov|zip|rar|srt)$/i) || downloadUrl.includes('/download') || downloadUrl.includes('direct');
-        if (isDirectFile) {
-          try {
-            const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.mp4`;
-            await sock.sendMessage(
-              jid,
-              {
-                document: { url: downloadUrl },
-                mimetype: 'video/mp4',
-                fileName: fileName,
-                caption: `🎬 *${movieTitle} ${movieYear}*\n\n📁 Quality: ${qualityText}\n📦 Size: ${fileSize}\n🗣 Subtitle: Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n\n🌐 Downloaded via Cineflix: ${process.env.WEBSITE_URL || config.websiteUrl}`
-              }
-            );
-            documentSent = true;
-          } catch (docErr) {
-            console.error('Error sending document in queue worker:', docErr.message);
-          }
+
+      // Parse file size limit (Up to 2GB sent as WhatsApp Document file)
+      const parsedSizeMB = parseFloat(fileSize) * (fileSize.toLowerCase().includes('gb') ? 1024 : 1);
+
+      // Send as Document file for all files up to 2GB (2048 MB)
+      if (downloadUrl && downloadUrl !== '#' && downloadUrl.startsWith('http') && parsedSizeMB <= 2048) {
+        try {
+          const isMkv = downloadUrl.toLowerCase().includes('.mkv') || downloadUrl.endsWith('.mkv');
+          const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.${isMkv ? 'mkv' : 'mp4'}`;
+          await sock.sendMessage(
+            jid,
+            {
+              document: { url: downloadUrl },
+              mimetype: isMkv ? 'video/x-matroska' : 'video/mp4',
+              fileName: fileName,
+              caption: `🎬 *${movieTitle} ${movieYear}*\n\n📁 Quality: ${qualityText}\n📦 Size: ${fileSize}\n🗣 Subtitle: Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n\n🌐 Downloaded via Cineflix: ${process.env.WEBSITE_URL || config.websiteUrl}`
+            }
+          );
+          documentSent = true;
+        } catch (docErr) {
+          console.error('Document upload error:', docErr.message);
         }
       }
 
       if (!documentSent) {
-        const linkNotice = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n\n🗣 Subtitle: Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n📥 *Direct Server Download Link:*\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🍿 *Watch Online & Download Web:* ${process.env.WEBSITE_URL || config.websiteUrl}`;
+        const linkNotice = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n📦 *ෆයිල් එකේ ප්‍රමාණය:* ${fileSize}\n🗣 *Subtitle:* Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n\n⚠️ *ලබාදීමේ සටහන (Delivery Notice):*\n(මෙම ෆයිල් එක 2GB ට වැඩි වන බැවින්, පහත සෘජු සර්වර් ලින්ක් එක මත ක්ලික් කර ${fileSize} Movie File එක ඔබේ Phone එකට සෘජුවම Download කරගන්න. 🚀)\n\n📥 *Direct High-Speed Server Download Link:*\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🍿 *Watch Online & Web Download:* ${process.env.WEBSITE_URL || config.websiteUrl}`;
         await sock.sendMessage(jid, { text: linkNotice });
       }
       await delay(1500);

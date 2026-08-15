@@ -80,6 +80,14 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
     }
   };
 
+  // Open Direct WhatsApp Chat with pre-filled message when clicking quality WhatsApp Bot button
+  const handleDirectWaChat = (m, quality = '720p') => {
+    const waNumber = localStorage.getItem('cf_wa_num') || '+94771234567';
+    const cleanNumber = waNumber.replace(/[^0-9]/g, '');
+    const text = encodeURIComponent(`Hi Cineflix! I want to download ${m.title} (${m.year || ''}) ${quality} via WhatsApp. Movie Code: ${m.id}`);
+    window.open(`https://api.whatsapp.com/send?phone=${cleanNumber}&text=${text}`, '_blank');
+  };
+
   // Real TMDb Cast list with actor profile photos & character roles
   const castArray = tmdbData?.castList || movie.castList || (movie.cast ? movie.cast.split(',').map(c => ({
     name: c.trim(),
@@ -497,7 +505,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
                   </button>
 
                   <button
-                    onClick={() => onOpenWhatsAppDl(movie)}
+                    onClick={() => handleDirectWaChat(movie, dl?.res || '720p')}
                     className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
                   >
                     <MessageCircle className="w-4 h-4" />
