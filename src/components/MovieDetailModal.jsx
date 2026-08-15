@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Star, Clock, Calendar, Download, MessageCircle, Play, Film, Globe, User, Subtitles, ExternalLink, Eye, MessageSquare, Send, Share2, Bookmark, Check } from 'lucide-react';
+import { ArrowLeft, Star, Clock, Calendar, Download, MessageCircle, Play, Film, Globe, User, Subtitles, ExternalLink, Eye, MessageSquare, Send, Share2, Bookmark, Check, Tv } from 'lucide-react';
 import { fetchMovieTmdbDetails } from '../services/tmdb.js';
 
-export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onOpenSubDl, onOpenMovieDl }) {
+export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onOpenSubDl, onOpenMovieDl, onSelectEpisode }) {
   if (!movie) return null;
 
   const [activeStream, setActiveStream] = useState(false);
   const [tmdbData, setTmdbData] = useState(null);
+  const [selectedSeasonIdx, setSelectedSeasonIdx] = useState(0);
+
   const [comments, setComments] = useState(movie.commentsList || [
-    { id: 1, name: 'Kasun Perera', text: 'Maru film eka! Sinhala sub ekata sthuthiy!', date: '2 hours ago', adminReply: 'ස්තූතියි! Enjoy the movie!' }
+    { id: 1, name: 'Kasun Perera', text: 'Maru series eka! Sinhala sub ekata sthuthiy!', date: '2 hours ago', adminReply: 'ස්තූතියි! Enjoy watching!' }
   ]);
   const [newComment, setNewComment] = useState({ name: '', email: '', text: '' });
   const [commentSubmitted, setCommentSubmitted] = useState(false);
@@ -54,6 +56,29 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
     movie.backdrop,
     movie.poster
   ].filter(Boolean);
+
+  const isTvSeries = movie.type === 'tv' || movie.type === 'series' || (movie.seasons && movie.seasons.length > 0);
+
+  // Generate Default Seasons & Episodes for TV Series if missing
+  const seasonsList = (movie.seasons && movie.seasons.length > 0) ? movie.seasons : [
+    {
+      season: 1,
+      seasonName: 'Season 1',
+      episodes: Array.from({ length: 12 }, (_, i) => ({
+        ep: i + 1,
+        title: `Episode ${i + 1}`,
+        airDate: movie.year || '2023',
+        runtime: '24m',
+        description: `High School DxD Season 1 Episode ${i + 1} with Sinhala Subtitles.`,
+        srv1: movie.streamUrl || movie.downloads?.[0]?.srv1 || '#',
+        srv2: movie.streamUrl2 || movie.downloads?.[0]?.srv2 || '#',
+        pd720: movie.downloads?.[0]?.pd720 || '#',
+        pd1080: movie.downloads?.[0]?.pd1080 || '#'
+      }))
+    }
+  ];
+
+  const currentSeasonEpisodes = seasonsList[selectedSeasonIdx]?.episodes || [];
 
   const stream1 = movie.streamUrl || movie.downloads?.[0]?.srv2;
   const dl720 = movie.downloads?.find(d => d.res === '720p') || movie.downloads?.[0];
@@ -101,11 +126,11 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </span>
           <span className="px-3 py-1 rounded bg-[#F5C518] text-black font-extrabold text-[11px] flex items-center gap-1 shadow">
             <Star className="w-3.5 h-3.5 fill-black text-black" />
-            {movie.rating || '4.2'}
+            {movie.rating || '8.2'}
           </span>
           <span className="px-3 py-1 rounded bg-gray-900 border border-gray-800 text-gray-300 font-bold text-[11px] flex items-center gap-1">
             <Eye className="w-3.5 h-3.5 text-gray-400" />
-            {movie.views || '125'}
+            {movie.views || '142'}
           </span>
         </div>
 
@@ -119,34 +144,29 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
 
         {/* 4. Meta Line: Country flag, year, genre pill, runtime */}
         <div className="flex items-center justify-center space-x-3 text-xs font-bold text-gray-300">
-          <span>🇺🇸 {movie.year || '2022'}</span>
+          <span>🇯🇵 {movie.year || '2023'}</span>
           <span className="px-3 py-0.5 rounded-full bg-red-950/60 border border-red-500/40 text-red-400 uppercase text-[10px] font-extrabold">
-            {movie.genre || 'Action'}
+            {movie.genre || 'Sci-Fi'}
           </span>
-          <span>{movie.runtime || '2h 18m'}</span>
+          <span>{isTvSeries ? `${seasonsList.length} Seasons` : (movie.runtime || '2h 18m')}</span>
         </div>
 
         {/* 5. Metadata Boxes Grid: Release Date, Director, Stars matching screenshot */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="p-3.5 rounded-2xl bg-[#111111] border border-gray-800/80 space-y-1">
             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">RELEASE DATE</span>
-            <span className="text-xs font-bold text-white block truncate">{tmdbData?.releaseDate || movie.releaseDate || 'December 23, 2022'}</span>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-[#111111] border border-gray-800/80 space-y-1">
-            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">DIRECTOR</span>
-            <span className="text-xs font-bold text-white block truncate">{tmdbData?.director || movie.director || 'Trinadha Rao Nakkina'}</span>
+            <span className="text-xs font-bold text-white block truncate">{tmdbData?.releaseDate || movie.releaseDate || 'January 6, 2023'}</span>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-[#111111] border border-gray-800/80 space-y-1">
             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">STARS</span>
-            <span className="text-xs font-bold text-white block truncate">{tmdbData?.stars || movie.stars || movie.cast || 'Ravi Teja, Sreeleela, Jayaram'}</span>
+            <span className="text-xs font-bold text-white block truncate">{tmdbData?.stars || movie.stars || movie.cast || 'Yuki Kaji, Yoko Hikasa, Azumi Asakura'}</span>
           </div>
         </div>
 
         {/* 6. Synopsis Overview */}
         <div className="text-xs sm:text-sm text-gray-300/90 leading-relaxed text-center sm:text-left px-2">
-          {movie.description || 'Swamy and Anand Chakravarthy are lookalikes. Swamy is a jobless guy, while Anand is the son of Nanda Gopal Chakravarthy. Under dicey circumstances Pranavi falls in love with both of them.'}
+          {movie.description || 'Issei Hyoudou is a high school student who is killed on his first date by his girlfriend, who turns out to be a fallen angel. He is reincarnated as a devil by a gorgeous high school girl named Rias Gremory to serve her.'}
         </div>
 
         {/* 7. Credit Cards: Description & Subtitle by matching screenshot */}
@@ -167,7 +187,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
             </div>
             <div>
               <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block">SUBTITLE BY</span>
-              <span className="text-xs font-bold text-white">{movie.subBy || 'Cineflix.lk'}</span>
+              <span className="text-xs font-bold text-white">{movie.subBy || 'Paisub.com'}</span>
             </div>
           </div>
         </div>
@@ -228,119 +248,196 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </div>
         )}
 
-        {/* 10. CUSTOM STREAM PLAYER matching screenshot */}
-        <div className="space-y-3 pt-2">
-          <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-gray-800 shadow-2xl group">
-            {!activeStream ? (
-              <div className="relative w-full h-full">
-                <img
-                  src={tmdbData?.backdrop || movie.backdrop || movie.poster}
-                  alt={movie.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center space-y-3">
+        {/* 10. CONDITIONAL RENDERING: SEASONS & EPISODES FOR TV SERIES vs QUALITY CARDS FOR MOVIES */}
+        {isTvSeries ? (
+          /* TV SERIES SEASONS & EPISODES ACCORDION matching Screenshot 2 */
+          <div className="space-y-4 pt-4 border-t border-gray-800">
+            <div className="flex items-center justify-between border-b border-gray-800 pb-2">
+              <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
+                <Tv className="w-4 h-4" />
+                <span>EPISODES</span>
+              </h3>
+              <span className="text-[10px] text-gray-500 font-bold uppercase">POWERED BY CINEFLIX</span>
+            </div>
+
+            {/* Season Tabs matching Screenshot 2 */}
+            <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar pb-1">
+              {seasonsList.map((season, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedSeasonIdx(idx)}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    selectedSeasonIdx === idx
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
+                      : 'bg-[#111111] text-gray-400 border border-gray-800 hover:text-white'
+                  }`}
+                >
+                  {season.seasonName || `Season ${season.season || idx + 1}`}
+                </button>
+              ))}
+            </div>
+
+            {/* Episode List matching Screenshot 2 */}
+            <div className="space-y-2.5">
+              {currentSeasonEpisodes.map((ep, idx) => (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-2xl bg-[#111111] border border-gray-800/90 shadow-xl flex items-center justify-between hover:border-red-500/40 transition group"
+                >
+                  <div className="flex items-center space-x-3 min-w-0 pr-2">
+                    <div className="relative w-24 h-16 rounded-xl overflow-hidden bg-gray-900 border border-gray-800 flex-shrink-0">
+                      <img
+                        src={ep.thumbnail || ep.still || movie.backdrop || movie.poster}
+                        alt={ep.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[8px] font-black text-red-400">
+                        Ep {ep.ep || idx + 1}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 space-y-0.5">
+                      <h4 className="text-xs font-bold text-white truncate font-['Poppins']">
+                        {ep.title || `Episode ${ep.ep || idx + 1}`}
+                      </h4>
+                      <p className="text-[10px] text-gray-400 font-semibold">
+                        {ep.airDate || ep.date || movie.year} • {ep.runtime || '24m'}
+                      </p>
+                      {ep.description && (
+                        <p className="text-[10px] text-gray-500 line-clamp-1">{ep.description}</p>
+                      )}
+                    </div>
+                  </div>
+
                   <button
-                    onClick={() => setActiveStream(true)}
-                    className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-2xl transition-all transform hover:scale-110 cursor-pointer"
+                    onClick={() => onSelectEpisode && onSelectEpisode(ep, seasonsList[selectedSeasonIdx]?.seasonName || `Season ${selectedSeasonIdx + 1}`)}
+                    className="p-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white border border-gray-800 transition-all flex-shrink-0 cursor-pointer shadow"
+                    title="Download Episode"
                   >
-                    <Play className="w-7 h-7 fill-white ml-1" />
+                    <Download className="w-4 h-4" />
                   </button>
-                  <span className="text-xs font-bold text-white tracking-wider">
-                    {movie.title}: Stream In HD
-                  </span>
                 </div>
-              </div>
-            ) : (
-              <iframe
-                src={stream1 || 'https://www.youtube.com/embed/dQw4w9WgXcQ'}
-                className="w-full h-full border-0"
-                allowFullScreen
-                title="Stream Player"
-              ></iframe>
-            )}
-          </div>
-        </div>
-
-        {/* 11. SELECT QUALITY (DOWNLOAD CARDS) matching screenshot */}
-        <div className="space-y-4 pt-4">
-          <div className="flex items-center justify-between border-b border-gray-800 pb-2">
-            <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              <span>SELECT QUALITY</span>
-            </h3>
-            <span className="text-[10px] text-gray-500 font-bold uppercase">POWERED BY CINEFLIX</span>
-          </div>
-
-          {/* 1080P Card */}
-          <div className="p-4 rounded-2xl bg-[#111111] border border-gray-800/90 shadow-xl space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-red-950 to-red-900 border border-red-500/40 flex flex-col items-center justify-center text-center">
-                  <span className="text-[8px] font-extrabold text-red-400 uppercase tracking-wider">FHD</span>
-                  <span className="text-xs font-black text-white font-['Bebas_Neue']">1080P</span>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-white">Direct Download <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">HD</span> <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER</span></h4>
-                  <span className="text-[10px] text-gray-500 font-bold">{dl1080?.size || '1.85GB'}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, '1080p', 'movie') : onOpenSubDl(movie))}
-                className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Direct Download</span>
-              </button>
-
-              <button
-                onClick={() => onOpenWhatsAppDl(movie)}
-                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>WhatsApp Bot</span>
-              </button>
+              ))}
             </div>
           </div>
-
-          {/* 720P Card */}
-          <div className="p-4 rounded-2xl bg-[#111111] border border-gray-800/90 shadow-xl space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-red-950 to-red-900 border border-red-500/40 flex flex-col items-center justify-center text-center">
-                  <span className="text-[8px] font-extrabold text-red-400 uppercase tracking-wider">HD</span>
-                  <span className="text-xs font-black text-white font-['Bebas_Neue']">720P</span>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-white">Direct Download <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">HD</span> <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER</span></h4>
-                  <span className="text-[10px] text-gray-500 font-bold">{dl720?.size || '1.46GB'}</span>
-                </div>
+        ) : (
+          /* SINGLE MOVIE PLAYER & QUALITY CARDS */
+          <>
+            {/* Stream Player */}
+            <div className="space-y-3 pt-2">
+              <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-gray-800 shadow-2xl group">
+                {!activeStream ? (
+                  <div className="relative w-full h-full">
+                    <img
+                      src={tmdbData?.backdrop || movie.backdrop || movie.poster}
+                      alt={movie.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center space-y-3">
+                      <button
+                        onClick={() => setActiveStream(true)}
+                        className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-2xl transition-all transform hover:scale-110 cursor-pointer"
+                      >
+                        <Play className="w-7 h-7 fill-white ml-1" />
+                      </button>
+                      <span className="text-xs font-bold text-white tracking-wider">
+                        {movie.title}: Stream In HD
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    src={stream1 || 'https://www.youtube.com/embed/dQw4w9WgXcQ'}
+                    className="w-full h-full border-0"
+                    allowFullScreen
+                    title="Stream Player"
+                  ></iframe>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, '720p', 'movie') : onOpenSubDl(movie))}
-                className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Direct Download</span>
-              </button>
+            {/* Quality Cards */}
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center justify-between border-b border-gray-800 pb-2">
+                <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  <span>SELECT QUALITY</span>
+                </h3>
+                <span className="text-[10px] text-gray-500 font-bold uppercase">POWERED BY CINEFLIX</span>
+              </div>
 
-              <button
-                onClick={() => onOpenWhatsAppDl(movie)}
-                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>WhatsApp Bot</span>
-              </button>
+              {/* 1080P Card */}
+              <div className="p-4 rounded-2xl bg-[#111111] border border-gray-800/90 shadow-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-red-950 to-red-900 border border-red-500/40 flex flex-col items-center justify-center text-center">
+                      <span className="text-[8px] font-extrabold text-red-400 uppercase tracking-wider">FHD</span>
+                      <span className="text-xs font-black text-white font-['Bebas_Neue']">1080P</span>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">Direct Download <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">HD</span> <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER</span></h4>
+                      <span className="text-[10px] text-gray-500 font-bold">{dl1080?.size || '1.85GB'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, '1080p', 'movie') : onOpenSubDl(movie))}
+                    className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Direct Download</span>
+                  </button>
+
+                  <button
+                    onClick={() => onOpenWhatsAppDl(movie)}
+                    className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>WhatsApp Bot</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 720P Card */}
+              <div className="p-4 rounded-2xl bg-[#111111] border border-gray-800/90 shadow-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-red-950 to-red-900 border border-red-500/40 flex flex-col items-center justify-center text-center">
+                      <span className="text-[8px] font-extrabold text-red-400 uppercase tracking-wider">HD</span>
+                      <span className="text-xs font-black text-white font-['Bebas_Neue']">720P</span>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">Direct Download <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">HD</span> <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER</span></h4>
+                      <span className="text-[10px] text-gray-500 font-bold">{dl720?.size || '1.46GB'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, '720p', 'movie') : onOpenSubDl(movie))}
+                    className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Direct Download</span>
+                  </button>
+
+                  <button
+                    onClick={() => onOpenWhatsAppDl(movie)}
+                    className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>WhatsApp Bot</span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* 12. SUBTITLES SECTION matching screenshot */}
+        {/* 11. SUBTITLES SECTION matching screenshot */}
         <div className="space-y-3 pt-2">
           <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
             <Subtitles className="w-4 h-4" />
@@ -354,7 +451,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
               </div>
               <div>
                 <h4 className="text-xs font-bold text-yellow-400">Sinhala Subtitle</h4>
-                <p className="text-[10px] text-gray-400">BY {movie.subBy || 'CINEFLIX.LK'}</p>
+                <p className="text-[10px] text-gray-400">BY {movie.subBy || 'Paisub.com'}</p>
               </div>
             </div>
 
@@ -368,7 +465,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </div>
         </div>
 
-        {/* 13. COMMENTS SECTION matching screenshot */}
+        {/* 12. COMMENTS SECTION matching screenshot */}
         <div className="space-y-4 pt-4 border-t border-gray-800">
           <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
             <MessageSquare className="w-4 h-4" />
@@ -439,7 +536,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </div>
         </div>
 
-        {/* 14. Footer Social Links matching screenshot */}
+        {/* 13. Footer Social Links matching screenshot */}
         <div className="pt-8 border-t border-gray-800 text-center space-y-4">
           <div className="flex items-center justify-center space-x-4">
             <a href="https://facebook.com" target="_blank" rel="noreferrer" className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white shadow hover:scale-110 transition-transform">

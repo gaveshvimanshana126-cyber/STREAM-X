@@ -334,6 +334,7 @@ export default function App() {
             }}
             onOpenSubDl={(m) => handleOpenDownloadFlow(m, '720p', 'subtitle')}
             onOpenMovieDl={(m, quality, type) => handleOpenDownloadFlow(m, quality, type)}
+            onSelectEpisode={(ep, seasonName) => setSelectedEpisode({ episode: ep, seasonName })}
           />
         ) : (
           <>
