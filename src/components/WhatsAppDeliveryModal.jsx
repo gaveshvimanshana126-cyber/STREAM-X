@@ -91,6 +91,25 @@ export default function WhatsAppDeliveryModal({ movie, selectedQuality = '720p',
           </div>
         </div>
 
+        {/* Official WhatsApp Group Banner */}
+        <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-2xl flex items-center justify-between space-x-2">
+          <div className="flex items-center space-x-2.5">
+            <MessageCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <div>
+              <p className="text-[11px] font-bold text-white leading-tight">Cineflix Official WhatsApp Group</p>
+              <p className="text-[9px] text-emerald-400 font-semibold">Movies යැවෙන්නේ මේ Group එකටයි</p>
+            </div>
+          </div>
+          <a
+            href="https://chat.whatsapp.com/E81OYFeX3nW9meDUAt9a7B"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase shadow transition flex-shrink-0"
+          >
+            JOIN GROUP
+          </a>
+        </div>
+
         {/* Success Alert */}
         {success ? (
           <div className="p-4 bg-emerald-950/80 border border-emerald-500/60 rounded-2xl text-center space-y-3">
