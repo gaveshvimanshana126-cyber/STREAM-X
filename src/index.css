@@ -325,6 +325,22 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.55);
 }
 
+/* Continuous Auto-Scroll Track for Movie Stills & Cast */
+@keyframes autoScrollTrack {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.auto-scroll-track {
+  display: flex;
+  width: max-content;
+  animation: autoScrollTrack 28s linear infinite;
+}
+
+.auto-scroll-track:hover {
+  animation-play-state: paused;
+}
+
 /* Marquee Notice Banner Animation */
 @keyframes marquee {
   0% { transform: translateX(0%); }

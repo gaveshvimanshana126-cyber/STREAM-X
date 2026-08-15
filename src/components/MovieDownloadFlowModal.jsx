@@ -35,14 +35,19 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
   const dl720 = movie.downloads?.find(d => d.res === '720p') || movie.downloads?.[0] || {};
   const dl1080 = movie.downloads?.find(d => d.res === '1080p') || movie.downloads?.[1] || dl720;
   const activeDl = selectedQuality === '1080p' ? dl1080 : dl720;
+  
+  // Use exact database download URL
   const targetUrl = activeDl.srv1 || activeDl.srv2 || activeDl.pd1080 || activeDl.pd720 || activeDl.url || movie.subUrl || '#';
 
   const handleDownloadClick = () => {
-    const finalUrl = targetUrl !== '#' ? targetUrl : `https://pixeldrain.com/u/${movie.id || 'sample'}`;
-    if (finalUrl.includes('pixeldrain.com')) {
-      onOpenPixeldrain(finalUrl);
+    if (!targetUrl || targetUrl === '#') {
+      alert('Download link for this quality is preparing in Database.');
+      return;
+    }
+    if (targetUrl.includes('pixeldrain.com')) {
+      onOpenPixeldrain(targetUrl);
     } else {
-      window.open(finalUrl, '_blank', 'noopener,noreferrer');
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -73,7 +78,7 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
         </div>
       )}
 
-      {/* STEP 2: Final Movie/Subtitle Download Page with Active Download Button matching index (45).html */}
+      {/* STEP 2: Final Movie/Subtitle Download Page with Active Database Download Button matching index (45).html */}
       {step === 'download' && (
         <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8 space-y-8">
           
@@ -119,13 +124,15 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
                   </div>
                 </div>
 
-                <button
-                  onClick={handleDownloadClick}
+                <a
+                  href={movie.subUrl || '#'}
+                  target="_blank"
+                  rel="noreferrer"
                   className="px-6 py-3.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold text-xs flex items-center space-x-2 shadow-lg transition-all cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
                   <span>Download .SRT File</span>
-                </button>
+                </a>
               </div>
             </div>
           ) : (
@@ -137,7 +144,7 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
                     {selectedQuality.toUpperCase()}
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">Direct Download <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">HD</span> <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER 1</span></h4>
+                    <h4 className="text-sm font-bold text-white">Direct Download <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">DATABASE SERVER</span></h4>
                     <span className="text-xs text-gray-400 font-bold">{activeDl.size || '1.85GB'} • MP4 File</span>
                   </div>
                 </div>
@@ -165,31 +172,33 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
           )}
 
           {/* Collapsible Sinhala Subtitle Usage Guide matching index (45).html */}
-          <div className="rounded-2xl bg-[#111111] border border-gray-800 overflow-hidden">
-            <button
-              onClick={() => setShowSubGuide(!showSubGuide)}
-              className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 transition-all cursor-pointer"
-            >
-              <div className="flex items-center space-x-3">
-                <Subtitles className="w-4 h-4 text-red-500" />
-                <span className="text-xs font-extrabold text-white">සිංහල උපසිරැසි යෙදීම (Sinhala Subtitle Guide)</span>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${showSubGuide ? 'rotate-180' : ''}`} />
-            </button>
+          {movie.subUrl && (
+            <div className="rounded-2xl bg-[#111111] border border-gray-800 overflow-hidden">
+              <button
+                onClick={() => setShowSubGuide(!showSubGuide)}
+                className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 transition-all cursor-pointer"
+              >
+                <div className="flex items-center space-x-3">
+                  <Subtitles className="w-4 h-4 text-red-500" />
+                  <span className="text-xs font-extrabold text-white">සිංහල උපසිරැසි යෙදීම (Sinhala Subtitle Guide)</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${showSubGuide ? 'rotate-180' : ''}`} />
+              </button>
 
-            {showSubGuide && (
-              <div className="p-4 border-t border-gray-800 space-y-3 text-xs text-gray-300 leading-relaxed bg-gray-950/60">
-                <p className="font-semibold text-white">
-                  📱 Mobile / PC හි සිංහල උපසිරැසි සමඟ වීඩියෝ බලන්නේ කෙසේද:
-                </p>
-                <ol className="list-decimal list-inside space-y-1.5 text-gray-400">
-                  <li>බාගත කරගත් <code className="text-yellow-400 font-mono">.SRT</code> Subtitle ගොනුව සහ Movie ගොනුව එකම ෆෝල්ඩරයේ තබන්න.</li>
-                  <li>ලැබුණු <code className="text-yellow-400 font-mono">.SRT</code> ගොනුවේ නම Movie File එකේ නමට සමාන වන සේ Rename කරන්න.</li>
-                  <li><strong className="text-white">VLC Media Player</strong> හෝ <strong className="text-white">MX Player</strong> මගින් Movie එක Open කර Subtitles ලබා ගන්න.</li>
-                </ol>
-              </div>
-            )}
-          </div>
+              {showSubGuide && (
+                <div className="p-4 border-t border-gray-800 space-y-3 text-xs text-gray-300 leading-relaxed bg-gray-950/60">
+                  <p className="font-semibold text-white">
+                    📱 Mobile / PC හි සිංහල උපසිරැසි සමඟ වීඩියෝ බලන්නේ කෙසේද:
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1.5 text-gray-400">
+                    <li>බාගත කරගත් <code className="text-yellow-400 font-mono">.SRT</code> Subtitle ගොනුව සහ Movie ගොනුව එකම ෆෝල්ඩරයේ තබන්න.</li>
+                    <li>ලැබුණු <code className="text-yellow-400 font-mono">.SRT</code> ගොනුවේ නම Movie File එකේ නමට සමාන වන සේ Rename කරන්න.</li>
+                    <li><strong className="text-white">VLC Media Player</strong> හෝ <strong className="text-white">MX Player</strong> මගින් Movie එක Open කර Subtitles ලබා ගන්න.</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       )}
