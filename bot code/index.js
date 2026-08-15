@@ -40,6 +40,7 @@ let latestQRImage = null;
 let dbStatus = 'Firebase Realtime DB (Live Sync)';
 
 const FIREBASE_DB_URL = 'https://sutable-99848-default-rtdb.firebaseio.com';
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Mongoose Schema for Baileys WhatsApp Session Persistence in MongoDB Atlas (Heroku Safe)
 const baileysAuthSchema = new mongoose.Schema({
@@ -178,7 +179,7 @@ async function startBot() {
       authState = await useMultiFileAuthState(authFolder);
     }
   } else {
-    console.log('📁 MONGODB_URI not provided. Using local auth_info_baileys folder for session storage.');
+    console.log('📁 Using local auth_info_baileys folder for session storage.');
     const authFolder = path.join(__dirname, 'auth_info_baileys');
     authState = await useMultiFileAuthState(authFolder);
   }
@@ -262,6 +263,110 @@ async function startBot() {
   });
 }
 
+// Automatic Bot Queue Worker for Website Direct Phone Delivery matching Screenshots
+async function processFirebaseBotQueue() {
+  if (!sock || !isConnected) return;
+
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/bot_requests.json`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (!data || typeof data !== 'object') return;
+
+    const pendingRequests = Object.entries(data)
+      .map(([key, val]) => ({ reqId: key, ...val }))
+      .filter(r => r.status === 'pending');
+
+    for (let i = 0; i < pendingRequests.length; i++) {
+      const req = pendingRequests[i];
+      const jid = `${req.phone}@s.whatsapp.net`;
+      const userName = req.userName || 'Gavesh';
+      const movieTitle = req.movieTitle || 'Movie';
+      const movieYear = req.movieYear ? `(${req.movieYear})` : '';
+      const qualityText = req.quality || '720p';
+
+      console.log(`🚀 Processing Direct WhatsApp Request for [${userName}] (${req.phone}): ${movieTitle}`);
+
+      // Step 1: Enqueued notice matching Screenshot 2
+      const msg1 = `🎬 *${movieTitle}* පේළිමට එක් කරන ලදී.\n👤 *නම:* ${userName}\n🔢 *ඔබගේ වාරය:* පේළිමේ 1 වෙනියා\n\nඔබගේ වාරය පැමිණි විගස බාගත කිරීම ආරම්භ කරනු ඇත.`;
+      await sock.sendMessage(jid, { text: msg1 });
+      await delay(2000);
+
+      // Step 2: Server downloading notice matching Screenshot 2
+      const msg2 = `👋 *ආයුබෝවන් ${userName}*, ඔබගේ *${movieTitle} ${movieYear}* චිත්‍රපටය මේ මොහොතේ අපගේ සර්වර් වෙත බාගත කිරීම ආරම්භ විය. කරුණාකර රැඳී සිටින්න... ⏳`;
+      await sock.sendMessage(jid, { text: msg2 });
+      await delay(2500);
+
+      // Step 3: Downloaded notice matching Screenshot 1 & 2
+      const msg3 = `📦 *${movieTitle}* සාර්ථකව ලබා ගත්තා. දැන් එය ඔබගේ WhatsApp වෙත එවමින් පවති. (ෆයිල් සයිස් එක අනුව මෙය WhatsApp වෙත පැමිණීමට සුළු වේලාවක් ගත විය හැක) 🚀`;
+      await sock.sendMessage(jid, { text: msg3 });
+      await delay(2000);
+
+      // Fetch movie download details from database
+      const movies = await loadMovies();
+      const targetMovie = movies.find(m => m.id === req.movieId || (m.title && m.title.toLowerCase().includes(movieTitle.toLowerCase())));
+      const targetDownload = targetMovie?.downloads?.find(d => d.res === qualityText) || targetMovie?.downloads?.[0];
+      const downloadUrl = targetDownload?.srv1 || targetDownload?.srv2 || targetDownload?.url || targetMovie?.subUrl;
+      const fileSize = targetDownload?.size || '216 MB';
+
+      // Step 4: Uploading notice matching Screenshot 1 & 2
+      const msg4 = `📊 *ෆයිල් එකේ ප්‍රමාණය:* ${fileSize}\n🚀 දැන් මෙය ඔබගේ WhatsApp එකට උඩුගත වෙමින් පවති. කරුණාකර රැඳී සිටින්න...`;
+      await sock.sendMessage(jid, { text: msg4 });
+      await delay(2000);
+
+      // Step 5: Deliver Document File (.mp4) or Direct Download Link
+      let documentSent = false;
+      if (downloadUrl && downloadUrl !== '#' && downloadUrl.startsWith('http')) {
+        const isDirectFile = downloadUrl.match(/\.(mp4|mkv|avi|mov|zip|rar|srt)$/i) || downloadUrl.includes('/download') || downloadUrl.includes('direct');
+        if (isDirectFile) {
+          try {
+            const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.mp4`;
+            await sock.sendMessage(
+              jid,
+              {
+                document: { url: downloadUrl },
+                mimetype: 'video/mp4',
+                fileName: fileName,
+                caption: `🎬 *${movieTitle} ${movieYear}*\n\n📁 Quality: ${qualityText}\n📦 Size: ${fileSize}\n🗣 Subtitle: Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n\n🌐 Downloaded via Cineflix: ${process.env.WEBSITE_URL || config.websiteUrl}`
+              }
+            );
+            documentSent = true;
+          } catch (docErr) {
+            console.error('Error sending document in queue worker:', docErr.message);
+          }
+        }
+      }
+
+      if (!documentSent) {
+        const linkNotice = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n\n🗣 Subtitle: Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n📥 *Direct Server Download Link:*\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🍿 *Watch Online & Download Web:* ${process.env.WEBSITE_URL || config.websiteUrl}`;
+        await sock.sendMessage(jid, { text: linkNotice });
+      }
+      await delay(1500);
+
+      // Step 6: Successfully sent notice matching Screenshot 1
+      const msg6 = `✅ *${movieTitle} successfully sent!*\n👤 *Requested by:* ${userName}`;
+      await sock.sendMessage(jid, { text: msg6 });
+      await delay(1500);
+
+      // Step 7: Final thank you notice matching Screenshot 1
+      const msg7 = `✅ *ආයුබෝවන් ${userName}*, ඔබ ඉල්ලුම් කළ *${movieTitle}* චිත්‍රපටය සාර්ථකව ඒවා අවසන්! අපගේ සේවාව ලබාගැනීම පිළිබඳව ස්තූතියි. 🎬\n\nසිංහල හෝ Tamil Subtitles Play වීමට නම් MX Player / VLC Player භාවිත කර Movie එක බලන්න.\n\nගැටලුවක් ඇත්නම් Cineflix Admin කෙනෙකු අමතන්න. 😊\n\n🌐 ${process.env.WEBSITE_URL || config.websiteUrl}`;
+      await sock.sendMessage(jid, { text: msg7 });
+
+      // Update status in Firebase RTDB to completed
+      await fetch(`${FIREBASE_DB_URL}/bot_requests/${req.reqId}/status.json`, {
+        method: 'PUT',
+        body: JSON.stringify('completed')
+      });
+    }
+  } catch (queueErr) {
+    console.error('Queue worker error:', queueErr.message);
+  }
+}
+
+// Run queue worker every 6 seconds
+setInterval(processFirebaseBotQueue, 6000);
+
 async function handleMovieDownloadRequest(sock, from, input, msg) {
   const movies = await loadMovies();
   if (!movies || movies.length === 0) return;
@@ -326,38 +431,54 @@ async function handleMovieDownloadRequest(sock, from, input, msg) {
   await sock.sendMessage(from, { text: '✅' });
 
   try {
-    if (downloadUrl && downloadUrl !== '#' && !downloadUrl.includes('pixeldrain.com')) {
-      const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.mp4`;
-      
-      await sock.sendMessage(
-        from,
-        {
-          document: { url: downloadUrl },
-          mimetype: 'video/mp4',
-          fileName: fileName,
-          caption: `🎬 *${movieTitle} ${movieYear}*\n\n📁 Quality: ${qualityText}\n📦 Size: ${targetDownload?.size || 'HD'}\n🗣 Subtitle: ${targetMovie.subBy || 'Sinhala Subtitles'}\n\n🌐 Downloaded via Cineflix: ${process.env.WEBSITE_URL || config.websiteUrl}`
-        },
-        { quoted: msg }
-      );
+    // If direct downloadable video file
+    if (downloadUrl && downloadUrl !== '#' && downloadUrl.startsWith('http')) {
+      const isDirectFile = downloadUrl.match(/\.(mp4|mkv|avi|mov|zip|rar|srt)$/i) || downloadUrl.includes('/download') || downloadUrl.includes('direct');
+      if (isDirectFile) {
+        const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.mp4`;
+        
+        await sock.sendMessage(
+          from,
+          {
+            document: { url: downloadUrl },
+            mimetype: 'video/mp4',
+            fileName: fileName,
+            caption: `🎬 *${movieTitle} ${movieYear}*\n\n📁 Quality: ${qualityText}\n📦 Size: ${targetDownload?.size || 'HD'}\n🗣 Subtitle: Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n\n🌐 Downloaded via Cineflix: ${process.env.WEBSITE_URL || config.websiteUrl}`
+          },
+          { quoted: msg }
+        );
 
-      await sock.sendMessage(from, {
-        text: config.messages.downloadSuccess
-          .replace('{title}', movieTitle)
-          .replace('{quality}', qualityText)
-      });
-    } else {
-      const altNotice = `ℹ️ *${movieTitle} (${qualityText})*\n\nDirect Download Link:\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🌐 Web Stream & Download: ${process.env.WEBSITE_URL || config.websiteUrl}`;
-      await sock.sendMessage(from, { text: altNotice }, { quoted: msg });
+        await sock.sendMessage(from, {
+          text: config.messages.downloadSuccess
+            .replace('{title}', movieTitle)
+            .replace('{quality}', qualityText)
+        });
+        return;
+      }
     }
+
+    // Direct text link delivery for web download links / mirror servers
+    const linkNotice = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n\n🗣 Subtitle: Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n📥 *Direct Server Download Link:*\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🍿 *Watch Online & Download Web:* ${process.env.WEBSITE_URL || config.websiteUrl}`;
+    await sock.sendMessage(from, { text: linkNotice }, { quoted: msg });
   } catch (downloadErr) {
     console.error('Error delivering movie file:', downloadErr.message);
-    const fallbackMsg = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n\n🔗 Download Link: ${downloadUrl || targetDownload?.tgLink || config.websiteUrl}`;
+    const fallbackMsg = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n\n🗣 Subtitle: Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n📥 *Download Link:*\n🔗 ${downloadUrl || targetDownload?.tgLink || config.websiteUrl}\n\n🌐 Cineflix Web: ${process.env.WEBSITE_URL || config.websiteUrl}`;
     await sock.sendMessage(from, { text: fallbackMsg }, { quoted: msg });
   }
 }
 
-// REST API Endpoints for Web Dashboard
-app.get('/api/status', (req, res) => {
+// Secure Authorization Middleware for Heroku Bot API Endpoints
+const secureBotAuth = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'] || req.query.key;
+  const SECRET_KEY = process.env.BOT_SECRET_KEY || 'cflx_bot_secure_2026';
+  if (!apiKey || apiKey !== SECRET_KEY) {
+    return res.status(403).json({ error: 'Unauthorized access to Cineflix Bot API endpoints.' });
+  }
+  next();
+};
+
+// REST API Endpoints for Web Dashboard (Protected with API Key)
+app.get('/api/status', secureBotAuth, (req, res) => {
   res.json({
     connected: isConnected,
     database: dbStatus,
@@ -366,14 +487,14 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-app.get('/api/qr', (req, res) => {
+app.get('/api/qr', secureBotAuth, (req, res) => {
   res.json({
     connected: isConnected,
     qrImage: latestQRImage
   });
 });
 
-app.post('/api/pair', async (req, res) => {
+app.post('/api/pair', secureBotAuth, async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) {
