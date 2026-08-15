@@ -109,12 +109,12 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </span>
         </div>
 
-        {/* 3. Title with red/gold gradient underline */}
-        <div className="text-center space-y-2">
+        {/* 3. Title with SINGLE red/gold gradient underline matching index (45).html */}
+        <div className="text-center py-1">
           <h1 className="text-3xl sm:text-5xl font-black text-white font-['Poppins'] tracking-tight">
             {movie.title}
           </h1>
-          <div className="w-12 h-1 bg-gradient-to-r from-[#E8262A] to-[#F5C518] mx-auto rounded-full"></div>
+          <div className="w-12 h-1 bg-gradient-to-r from-[#E8262A] to-[#F5C518] mx-auto rounded-full mt-3"></div>
         </div>
 
         {/* 4. Meta Line: Country flag, year, genre pill, runtime */}

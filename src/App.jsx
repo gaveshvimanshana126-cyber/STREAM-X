@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import NoticeBanner from './components/NoticeBanner.jsx';
 import Navbar from './components/Navbar.jsx';
 import HeroSlider from './components/HeroSlider.jsx';
 import CategoryFilter from './components/CategoryFilter.jsx';
@@ -89,7 +90,11 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = subscribeRtdb('movies', (remoteData) => {
       if (remoteData && typeof remoteData === 'object') {
-        const movieArray = Object.values(remoteData);
+        const movieArray = Object.entries(remoteData).map(([key, val]) => ({
+          id: val.id || key,
+          ...val
+        })).filter(Boolean);
+
         if (movieArray.length > 0) {
           setMovies(movieArray);
         }
@@ -159,6 +164,8 @@ export default function App() {
   // Filter Logic matching index (45).html
   const filteredMovies = useMemo(() => {
     return movies.filter(movie => {
+      if (!movie) return false;
+
       // 1. Search Query Filter
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
@@ -204,6 +211,9 @@ export default function App() {
           <span>{toastMsg}</span>
         </div>
       )}
+
+      {/* Top Notice Marquee Banner */}
+      <NoticeBanner />
 
       {/* Navigation Bar */}
       <Navbar
