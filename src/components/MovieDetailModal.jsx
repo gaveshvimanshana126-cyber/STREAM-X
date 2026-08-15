@@ -543,7 +543,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
         </div>
 
         {/* 12. SUBTITLES SECTION (SHOW FOR MOVIES ONLY - HIDE FOR TV SERIES) */}
-        {!isTvSeries && movie.subUrl && (
+        {!isTvSeries && (movie.subUrl || movie.dlSubUrl) && (
           <div className="space-y-3 pt-2 z-10">
             <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
               <Subtitles className="w-4 h-4" />

@@ -291,8 +291,10 @@ async function startBot() {
   });
 }
 
-let targetGroupJid = null;
-const GROUP_INVITE_CODE = 'E81OYFeX3nW9meDUAt9a7B';
+// Concurrency lock flag to prevent duplicate parallel worker ticks
+let isQueueWorkerRunning = false;
+let targetGroupJid = config.targetGroupJid || '120363411804070695@g.us';
+const GROUP_INVITE_CODE = config.groupInviteCode || 'E81OYFeX3nW9meDUAt9a7B';
 
 async function getOrJoinTargetGroup() {
   if (!sock || !isConnected) return targetGroupJid;
@@ -311,7 +313,7 @@ async function getOrJoinTargetGroup() {
   } catch (err) {
     console.log('Group join info note:', err.message);
   }
-  return targetGroupJid;
+  return targetGroupJid || '120363411804070695@g.us';
 }
 
 // Automatic Bot Queue Worker for Website Direct Phone Delivery matching Screenshots
@@ -338,16 +340,19 @@ async function processFirebaseBotQueue() {
     for (let i = 0; i < pendingRequests.length; i++) {
       const req = pendingRequests[i];
       const userJid = `${req.phone}@s.whatsapp.net`;
-      const sendJid = groupJid || userJid; // Send directly to WhatsApp Group to prevent DM bans!
       const userName = req.userName || 'Requester';
+      const userTag = `@${req.phone}`; // Real WhatsApp mention format
       const movieTitle = req.movieTitle || 'Movie';
       const movieYear = req.movieYear ? `(${req.movieYear})` : '';
       const qualityText = req.quality || '720p';
 
+      // Target JID: Try sending to Group first, fallback to User DM if Group fails/restricted
+      let targetSendJid = groupJid || userJid;
+
       // Calculate actual position in active queue (1st, 2nd, 3rd, etc.)
       const queuePosition = i + 1;
 
-      console.log(`🚀 Processing Direct WhatsApp Request #${queuePosition} for [${userName}] (${req.phone}) -> Delivering to Group (${sendJid}): ${movieTitle}`);
+      console.log(`🚀 Processing Direct WhatsApp Request #${queuePosition} for [${userName}] (${req.phone}) -> Target: ${targetSendJid}`);
 
       // Mark request as processing immediately in Firebase RTDB
       await fetch(`${FIREBASE_DB_URL}/bot_requests/${req.reqId}/status.json`, {
@@ -356,9 +361,15 @@ async function processFirebaseBotQueue() {
         body: JSON.stringify('processing')
       });
 
-      // Step 1: Queued Notice matching screenshot
-      const queuedMsg = `හලෝ! ⏳ *Request Queued!*\n\n@${userName} ඔයා ඉල්ලපු *${movieTitle} ${movieYear} (${qualityText})* movie එක queue එකට එකතු වුණා.\n\nmovie එක ready වුණ ගමන් මේ group එකටම එවන්නම්! 🍿`;
-      await sock.sendMessage(sendJid, { text: queuedMsg });
+      // Step 1: Queued Notice with real blue WhatsApp mention
+      const queuedMsg = `හලෝ! ⏳ *Request Queued!*\n\n${userTag} ඔයා ඉල්ලපු *${movieTitle} ${movieYear} (${qualityText})* movie එක queue එකට එකතු වුණා.\n\nmovie එක ready වුණ ගමන් එවන්නම්! 🍿`;
+      try {
+        await sock.sendMessage(targetSendJid, { text: queuedMsg, mentions: [userJid] });
+      } catch (grpErr) {
+        console.warn(`⚠️ Could not send queued notice to Group ${targetSendJid}, falling back to DM: ${grpErr.message}`);
+        targetSendJid = userJid;
+        await sock.sendMessage(targetSendJid, { text: queuedMsg, mentions: [userJid] }).catch(() => {});
+      }
       await delay(2000);
 
       // Fetch movie download details from database
@@ -375,53 +386,45 @@ async function processFirebaseBotQueue() {
       const downloadUrl = targetDownload?.srv1 || targetDownload?.srv2 || targetDownload?.url || targetMovie?.subUrl;
       const fileSize = targetDownload?.size || '216 MB';
 
-      // Step 2: Deliver Document File (.mp4/.mkv) directly to Group matching screenshot
+      // Step 2: Deliver Document File (.mp4/.mkv) with real blue WhatsApp mention in caption
       let documentSent = false;
-      const captionText = `🎬 *${movieTitle} ${movieYear} Sinhala Subtitles | සිංහල උපසිරැසි සමඟ*\n\n👤 *Requested by:* @${userName}\n📦 *Size:* ${fileSize}\n⚡ *Quality:* ${qualityText}\n\n🌐 *Downloaded via:* cineflix-lk.vercel.app\n© *MADE BY CINEFLIX*`;
+      const captionText = `🎬 *${movieTitle} ${movieYear}*\n\n👤 *Requested by:* ${userTag}\n📦 *Size:* ${fileSize}\n⚡ *Quality:* ${qualityText}\n\n🌐 *Downloaded via:* cineflix-lk.vercel.app\n© *MADE BY CINEFLIX*`;
 
       if (downloadUrl && downloadUrl !== '#' && downloadUrl.startsWith('http')) {
-        try {
-          const isMkv = downloadUrl.toLowerCase().includes('.mkv') || downloadUrl.endsWith('.mkv');
-          const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.${isMkv ? 'mkv' : 'mp4'}`;
-          
-          console.log(`📡 Streaming video with browser headers for [${movieTitle}] from: ${downloadUrl}`);
-          const videoStream = await axios.get(downloadUrl, {
-            responseType: 'stream',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-              'Accept': '*/*'
-            },
-            timeout: 300000 // 5 min timeout
-          });
+        const isMkv = downloadUrl.toLowerCase().includes('.mkv') || downloadUrl.endsWith('.mkv');
+        const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.${isMkv ? 'mkv' : 'mp4'}`;
 
+        try {
+          console.log(`📡 Sending document file [${fileName}] to ${targetSendJid} from: ${downloadUrl}`);
           await sock.sendMessage(
-            sendJid,
+            targetSendJid,
             {
-              document: { stream: videoStream.data },
+              document: { url: downloadUrl },
               mimetype: isMkv ? 'video/x-matroska' : 'video/mp4',
               fileName: fileName,
-              caption: captionText
+              caption: captionText,
+              mentions: [userJid]
             }
           );
           documentSent = true;
-          console.log(`✅ Document file [${fileName}] streamed & delivered to Group successfully!`);
+          console.log(`✅ Document file [${fileName}] delivered successfully to ${targetSendJid}`);
         } catch (docErr) {
-          console.error('⚠️ Stream document upload attempt failed:', docErr.message);
-          // Fallback attempt passing URL object directly to Baileys
+          console.error('⚠️ Primary document upload failed:', docErr.message);
+          // Fallback attempt to User DM if Group sending failed
           try {
-            await delay(3000);
-            const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.mp4`;
+            await delay(2000);
             await sock.sendMessage(
-              sendJid,
+              userJid,
               {
                 document: { url: downloadUrl },
-                mimetype: 'video/mp4',
+                mimetype: isMkv ? 'video/x-matroska' : 'video/mp4',
                 fileName: fileName,
-                caption: captionText
+                caption: captionText,
+                mentions: [userJid]
               }
             );
             documentSent = true;
-            console.log(`✅ Document file delivered on URL fallback to Group!`);
+            console.log(`✅ Document file delivered on DM fallback to ${userJid}`);
           } catch (retryErr) {
             console.error('❌ Retry document upload failed:', retryErr.message);
           }
@@ -429,19 +432,14 @@ async function processFirebaseBotQueue() {
       }
 
       if (!documentSent) {
-        const linkNotice = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n👤 *Requested by:* @${userName}\n📦 *Size:* ${fileSize}\n🗣 *Subtitle:* Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n\n📥 *Direct High-Speed Server Download Link:*\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🍿 *Watch Online & Web Download:* ${process.env.WEBSITE_URL || config.websiteUrl}`;
-        await sock.sendMessage(sendJid, { text: linkNotice });
+        const linkNotice = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n👤 *Requested by:* ${userTag}\n📦 *Size:* ${fileSize}\n🗣 *Subtitle:* Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n\n📥 *Direct High-Speed Server Download Link:*\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🍿 *Watch Online & Web Download:* ${process.env.WEBSITE_URL || config.websiteUrl}`;
+        await sock.sendMessage(targetSendJid, { text: linkNotice, mentions: [userJid] });
       }
       await delay(1500);
 
-      // Step 6: Successfully sent notice matching Screenshot 1
-      const msg6 = `✅ *${movieTitle} successfully sent!*\n👤 *Requested by:* ${userName}`;
-      await sock.sendMessage(jid, { text: msg6 });
-      await delay(1500);
-
-      // Step 7: Final thank you notice matching Screenshot 1
-      const msg7 = `✅ *ආයුබෝවන් ${userName}*, ඔබ ඉල්ලුම් කළ *${movieTitle}* චිත්‍රපටය සාර්ථකව ඒවා අවසන්! අපගේ සේවාව ලබාගැනීම පිළිබඳව ස්තූතියි. 🎬\n\nසිංහල හෝ Tamil Subtitles Play වීමට නම් MX Player / VLC Player භාවිත කර Movie එක බලන්න.\n\nගැටලුවක් ඇත්නම් Cineflix Admin කෙනෙකු අමතන්න. 😊\n\n🌐 ${process.env.WEBSITE_URL || config.websiteUrl}`;
-      await sock.sendMessage(jid, { text: msg7 });
+      // Step 3: Send Thank You & Subtitle Player Instructions right after file delivery with real blue mention
+      const thankYouMsg = `✅ *ආයුබෝවන් ${userTag}*, ඔබ ඉල්ලුම් කළ *${movieTitle}* චිත්‍රපටය සාර්ථකව ඒවා අවසන්! අපගේ සේවාව ලබාගැනීම පිළිබඳව ස්තූතියි. 🎬\n\nසිංහල හෝ Tamil Subtitles Play වීමට නම් MX Player / VLC Player භාවිත කර Movie එක බලන්න.\n\nගැටලුවක් ඇත්නම් Cineflix Admin කෙනෙකු අමතන්න. 😊\n\n🌐 ${process.env.WEBSITE_URL || config.websiteUrl}`;
+      await sock.sendMessage(targetSendJid, { text: thankYouMsg, mentions: [userJid] }).catch(() => {});
 
       // Delete processed request from Firebase RTDB to keep Database clean & lightweight
       await fetch(`${FIREBASE_DB_URL}/bot_requests/${req.reqId}.json`, {
