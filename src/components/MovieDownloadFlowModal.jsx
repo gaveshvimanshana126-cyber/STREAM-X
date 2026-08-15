@@ -6,16 +6,14 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
 
   const slug = movie.title ? movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : movie.id;
 
-  // Step state: 'confirm' -> 'countdown' -> 'download'
-  const [step, setStep] = useState('confirm');
+  // Step state: 'countdown' (3-2-1-0 ring screen) -> 'download' (Final download button screen)
+  const [step, setStep] = useState('countdown');
   const [countdown, setCountdown] = useState(3);
   const [showSubGuide, setShowSubGuide] = useState(true);
 
   // Sync Clean Address Bar URL for each step matching index (45).html routing
   useEffect(() => {
-    if (step === 'confirm') {
-      window.history.pushState({ step: 'dldetils' }, '', `/dldetils/${slug}`);
-    } else if (step === 'countdown') {
+    if (step === 'countdown') {
       window.history.pushState({ step: 'loaddl' }, '', `/loaddl/${slug}`);
     } else if (step === 'download') {
       window.history.pushState({ step: 'dlmovie' }, '', `/dlmovie/${slug}`);
@@ -34,69 +32,24 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
     return () => clearTimeout(timer);
   }, [step, countdown]);
 
-  const handleStartCountdown = () => {
-    setCountdown(3);
-    setStep('countdown');
-  };
-
   const dl720 = movie.downloads?.find(d => d.res === '720p') || movie.downloads?.[0] || {};
   const dl1080 = movie.downloads?.find(d => d.res === '1080p') || movie.downloads?.[1] || dl720;
   const activeDl = selectedQuality === '1080p' ? dl1080 : dl720;
-  const targetUrl = activeDl.srv2 || activeDl.srv1 || activeDl.pd1080 || activeDl.pd720 || activeDl.url || '#';
+  const targetUrl = activeDl.srv1 || activeDl.srv2 || activeDl.pd1080 || activeDl.pd720 || activeDl.url || movie.subUrl || '#';
 
-  const handleDownloadClick = (url) => {
-    if (!url || url === '#') return;
-    if (url.includes('pixeldrain.com')) {
-      onOpenPixeldrain(url);
+  const handleDownloadClick = () => {
+    const finalUrl = targetUrl !== '#' ? targetUrl : `https://pixeldrain.com/u/${movie.id || 'sample'}`;
+    if (finalUrl.includes('pixeldrain.com')) {
+      onOpenPixeldrain(finalUrl);
     } else {
-      window.open(url, '_blank', 'noopener,noreferrer');
+      window.open(finalUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0A0A0A] overflow-y-auto w-full min-h-screen text-gray-100 font-['Nunito',sans-serif] animate-fadeIn select-none">
       
-      {/* STEP 1: Confirmation Page matching index (45).html */}
-      {step === 'confirm' && (
-        <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center space-y-6 max-w-lg mx-auto">
-          <div className="w-44 sm:w-52 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 bg-gray-900">
-            <img
-              src={movie.poster || movie.backdrop}
-              alt={movie.title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <h2 className="text-2xl sm:text-3xl font-black text-white font-['Poppins']">
-              {movie.title}
-            </h2>
-            <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
-              {movie.year} • {movie.genre || 'Action'} • {downloadType === 'subtitle' ? 'SINHALA SUBTITLE' : `${selectedQuality.toUpperCase()} DIRECT DOWNLOAD`}
-            </p>
-          </div>
-
-          <div className="w-full space-y-3 pt-4">
-            <button
-              onClick={handleStartCountdown}
-              className="w-full py-3.5 rounded-xl bg-[#E8262A] hover:bg-red-700 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-xl shadow-red-600/40 transition-all cursor-pointer uppercase tracking-wider"
-            >
-              <Download className="w-4 h-4" />
-              <span>GO TO DOWNLOAD PAGE</span>
-            </button>
-
-            <button
-              onClick={onClose}
-              className="w-full py-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white font-bold text-xs flex items-center justify-center space-x-2 border border-gray-800 transition-all cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>BACK TO MOVIE</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 2: 3-Second Ring Countdown Screen matching index (45).html */}
+      {/* STEP 1: 3-Second Ring Countdown Screen (3 -> 2 -> 1 -> 0) matching index (45).html */}
       {step === 'countdown' && (
         <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center space-y-6">
           <div className="relative w-36 h-36 flex items-center justify-center">
@@ -104,7 +57,7 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
             <div className="absolute inset-0 rounded-full border-4 border-red-600/30 border-t-red-600 animate-spin"></div>
             <div className="absolute inset-2 rounded-full border-2 border-red-500/20 border-b-red-500 animate-spin" style={{ animationDirection: 'reverse' }}></div>
 
-            <span className="text-4xl font-black text-white font-['Bebas_Neue'] animate-pulse">
+            <span className="text-5xl font-black text-white font-['Bebas_Neue'] animate-pulse">
               {countdown}
             </span>
           </div>
@@ -120,7 +73,7 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
         </div>
       )}
 
-      {/* STEP 3: Final Movie/Subtitle Download Page matching index (45).html */}
+      {/* STEP 2: Final Movie/Subtitle Download Page with Active Download Button matching index (45).html */}
       {step === 'download' && (
         <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8 space-y-8">
           
@@ -166,15 +119,13 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
                   </div>
                 </div>
 
-                <a
-                  href={movie.subUrl || '#'}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-6 py-3.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold text-xs flex items-center space-x-2 shadow-lg transition-all"
+                <button
+                  onClick={handleDownloadClick}
+                  className="px-6 py-3.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold text-xs flex items-center space-x-2 shadow-lg transition-all cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
                   <span>Download .SRT File</span>
-                </a>
+                </button>
               </div>
             </div>
           ) : (
@@ -186,7 +137,7 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
                     {selectedQuality.toUpperCase()}
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">Direct Download <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER 1</span></h4>
+                    <h4 className="text-sm font-bold text-white">Direct Download <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">HD</span> <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER 1</span></h4>
                     <span className="text-xs text-gray-400 font-bold">{activeDl.size || '1.85GB'} • MP4 File</span>
                   </div>
                 </div>
@@ -195,7 +146,7 @@ export default function MovieDownloadFlowModal({ movie, selectedQuality = '1080p
               {/* Main Download Triggers */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <button
-                  onClick={() => handleDownloadClick(targetUrl)}
+                  onClick={handleDownloadClick}
                   className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-red-600/30 transition-all cursor-pointer uppercase tracking-wider"
                 >
                   <Download className="w-4 h-4" />
