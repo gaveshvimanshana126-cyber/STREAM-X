@@ -20,6 +20,7 @@ import FullCastPage from './components/FullCastPage.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
 import AdminLoginModal from './components/AdminLoginModal.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
+import WhatsAppDeliveryModal from './components/WhatsAppDeliveryModal.jsx';
 
 import { getMovies } from './data/moviesData.js';
 import { subscribeRtdb, trackVisitor, setAuthToken, rtdbGet } from './services/firebase.js';
@@ -316,10 +317,8 @@ export default function App() {
               window.history.pushState({}, '', '/');
             }}
             onOpenPixeldrain={(url) => setPixeldrainUrl(url)}
-            onOpenWhatsApp={(m) => {
-              const waNumber = localStorage.getItem('cf_wa_num') || '+94771234567';
-              const text = `Hi Cineflix! I want to download ${m.title} (${m.year || ''}) via WhatsApp. Movie Code: ${m.id}`;
-              window.open(`https://wa.me/${waNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+            onOpenWhatsApp={(m, quality = '720p') => {
+              setWaDeliveryData({ movie: m, quality });
             }}
           />
         ) : selectedMovie ? (
@@ -327,10 +326,8 @@ export default function App() {
           <MovieDetailModal
             movie={selectedMovie}
             onClose={() => handleSelectMovie(null)}
-            onOpenWhatsAppDl={(m) => {
-              const waNumber = localStorage.getItem('cf_wa_num') || '+94771234567';
-              const text = `Hi Cineflix! I want to download ${m.title} (${m.year || ''}) via WhatsApp. Movie Code: ${m.id}`;
-              window.open(`https://wa.me/${waNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+            onOpenWhatsAppDl={(m, quality = '720p') => {
+              setWaDeliveryData({ movie: m, quality });
             }}
             onOpenSubDl={(m) => handleOpenDownloadFlow(m, '720p', 'subtitle')}
             onOpenMovieDl={(m, quality, type) => handleOpenDownloadFlow(m, quality, type)}
@@ -476,6 +473,14 @@ export default function App() {
           }}
           onClose={() => setShowAdmin(false)}
           onLogout={() => setShowAdmin(false)}
+        />
+      )}
+
+      {waDeliveryData && (
+        <WhatsAppDeliveryModal
+          movie={waDeliveryData.movie}
+          selectedQuality={waDeliveryData.quality || '720p'}
+          onClose={() => setWaDeliveryData(null)}
         />
       )}
 
