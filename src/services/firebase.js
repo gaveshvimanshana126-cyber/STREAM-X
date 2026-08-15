@@ -114,8 +114,15 @@ export const incrementViews = async (movieId) => {
 
 export const trackDownload = async (movieId) => {
   try {
-    const cur = await rtdbGet(`movies/${movieId}/downloads_count`) || 0;
-    await rtdbSet(`movies/${movieId}/downloads_count`, cur + 1);
+    if (movieId) {
+      const cur = await rtdbGet(`movies/${movieId}/downloads_count`) || 0;
+      await rtdbSet(`movies/${movieId}/downloads_count`, cur + 1);
+    }
+
+    const totUrl = `${FIREBASE_DB_URL}/analytics/totalDownloads.json`;
+    const totRes = await fetch(totUrl);
+    const totVal = (await totRes.json()) || 0;
+    await fetch(totUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(totVal + 1) });
 
     const d = new Date();
     const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

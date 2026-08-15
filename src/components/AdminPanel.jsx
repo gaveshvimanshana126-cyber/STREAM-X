@@ -113,7 +113,22 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
   const loadAnalyticsData = async () => {
     try {
       const data = await rtdbGet('analytics') || {};
-      setAnalytics(data);
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      const todayVis = data.visitorsDaily?.[today] || 0;
+      const todayDl = data.downloadsDaily?.[today] || 0;
+      const todayVw = data.viewsDaily?.[today] || 0;
+      const totVis = data.totalVisitors || 0;
+      const totDl = data.totalDownloads || Object.values(data.downloadsDaily || {}).reduce((a, b) => a + b, 0);
+
+      setAnalytics({
+        totalVisitors: totVis,
+        todayVisitors: todayVis,
+        totalDownloads: totDl,
+        todayDownloads: todayDl,
+        todayViews: todayVw
+      });
     } catch (e) { }
   };
 
@@ -1182,22 +1197,59 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
           </div>
         )}
 
-        {/* Tab 4: Analytics */}
+        {/* Tab 4: Real-time Analytics Dashboard matching user request */}
         {activeTab === 'analytics' && (
-          <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4">
-            <h3 className="font-bold text-white text-sm">Website Visitor Analytics</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 bg-black/40 border border-white/5 rounded-xl text-center space-y-1">
-                <span className="text-2xl font-black text-red-500 font-mono">{analytics.totalVisitors || 0}</span>
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Total Visitors</p>
+          <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center space-x-2 text-red-500 font-extrabold text-sm uppercase font-['Bebas_Neue'] tracking-wider">
+                <BarChart2 className="w-5 h-5" />
+                <span>LIVE ANALYTICS & DASHBOARD STATS</span>
               </div>
-              <div className="p-4 bg-black/40 border border-white/5 rounded-xl text-center space-y-1">
-                <span className="text-2xl font-black text-emerald-400 font-mono">{Object.keys(analytics.downloadsDaily || {}).length}</span>
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Daily Downloads</p>
+              <button onClick={loadAnalyticsData} className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-gray-300 font-bold flex items-center gap-1.5 transition cursor-pointer">
+                <RefreshCw className="w-3.5 h-3.5" /> Refresh Stats
+              </button>
+            </div>
+
+            {/* Main 4 Real-time Analytical Cards requested by user */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {/* 1. Today Visitors */}
+              <div className="p-5 bg-gradient-to-br from-emerald-950/40 via-neutral-900 to-neutral-900 border border-emerald-500/40 rounded-2xl text-center space-y-1 shadow-xl">
+                <span className="text-3xl font-black text-emerald-400 font-mono block">{analytics.todayVisitors}</span>
+                <p className="text-[10px] font-extrabold text-gray-300 uppercase tracking-wider">Today Visitors</p>
               </div>
-              <div className="p-4 bg-black/40 border border-white/5 rounded-xl text-center space-y-1">
-                <span className="text-2xl font-black text-amber-400 font-mono">{movies.length}</span>
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Total Movies & Series</p>
+
+              {/* 2. All Visitors */}
+              <div className="p-5 bg-gradient-to-br from-sky-950/40 via-neutral-900 to-neutral-900 border border-sky-500/40 rounded-2xl text-center space-y-1 shadow-xl">
+                <span className="text-3xl font-black text-sky-400 font-mono block">{analytics.totalVisitors}</span>
+                <p className="text-[10px] font-extrabold text-gray-300 uppercase tracking-wider">All Visitors</p>
+              </div>
+
+              {/* 3. Today Downloads */}
+              <div className="p-5 bg-gradient-to-br from-red-950/40 via-neutral-900 to-neutral-900 border border-red-500/40 rounded-2xl text-center space-y-1 shadow-xl">
+                <span className="text-3xl font-black text-red-500 font-mono block">{analytics.todayDownloads}</span>
+                <p className="text-[10px] font-extrabold text-gray-300 uppercase tracking-wider">Today Downloads</p>
+              </div>
+
+              {/* 4. All Downloads */}
+              <div className="p-5 bg-gradient-to-br from-amber-950/40 via-neutral-900 to-neutral-900 border border-amber-500/40 rounded-2xl text-center space-y-1 shadow-xl">
+                <span className="text-3xl font-black text-amber-400 font-mono block">{analytics.totalDownloads}</span>
+                <p className="text-[10px] font-extrabold text-gray-300 uppercase tracking-wider">All Downloads</p>
+              </div>
+            </div>
+
+            {/* Secondary Catalog & Views Breakdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="p-4 bg-black/50 border border-white/5 rounded-2xl text-center space-y-1">
+                <span className="text-2xl font-black text-purple-400 font-mono block">{analytics.todayViews}</span>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Today Page Views</p>
+              </div>
+              <div className="p-4 bg-black/50 border border-white/5 rounded-2xl text-center space-y-1">
+                <span className="text-2xl font-black text-white font-mono block">{movies.filter(m => m.type !== 'tv').length}</span>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Movies Count</p>
+              </div>
+              <div className="p-4 bg-black/50 border border-white/5 rounded-2xl text-center space-y-1">
+                <span className="text-2xl font-black text-emerald-400 font-mono block">{movies.filter(m => m.type === 'tv').length}</span>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">TV Series Count</p>
               </div>
             </div>
           </div>
