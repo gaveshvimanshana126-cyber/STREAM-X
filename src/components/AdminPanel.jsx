@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search, User, Image, Subtitles, Bell, ThumbsUp, BarChart2, MessageCircle } from 'lucide-react';
+import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search, User, Image, Subtitles, Bell, ThumbsUp, BarChart2, MessageCircle, Layers } from 'lucide-react';
 import { rtdbGet, rtdbSet, rtdbPush, rtdbRemove } from '../services/firebase';
 
 export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout }) {
@@ -35,11 +35,25 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
     description: '',
     streamUrl: '',
     streamUrl2: '',
-    pd720: '',
-    pd1080: '',
-    tgLink: '',
     subUrl: ''
   });
+
+  // Dynamic Unlimited Download Links State
+  const [downloadsList, setDownloadsList] = useState([
+    { res: '720p', size: '1.46GB', quality: 'WEB-DL', srv1: '', pd720: '', tgLink: '' },
+    { res: '1080p', size: '2.12GB', quality: 'WEB-DL', srv1: '', pd1080: '', tgLink: '' }
+  ]);
+
+  // Dynamic Unlimited Seasons & Episodes State (For TV Series)
+  const [seasonsList, setSeasonsList] = useState([
+    {
+      season: 1,
+      seasonName: 'Season 1',
+      episodes: [
+        { ep: 1, title: 'Episode 1', airDate: '', runtime: '24m', srv1: '', pd720: '' }
+      ]
+    }
+  ]);
 
   useEffect(() => {
     loadRequestsData();
@@ -87,8 +101,6 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
   const handleEditMovieClick = (movie) => {
     setEditingMovieId(movie.id);
-    const dl720 = movie.downloads?.find(d => d.res === '720p') || movie.downloads?.[0] || {};
-    const dl1080 = movie.downloads?.find(d => d.res === '1080p') || movie.downloads?.[1] || {};
 
     setMovieForm({
       title: movie.title || '',
@@ -109,11 +121,24 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
       description: movie.description || '',
       streamUrl: movie.streamUrl || '',
       streamUrl2: movie.streamUrl2 || '',
-      pd720: dl720.pd720 || '',
-      pd1080: dl1080.pd1080 || '',
-      tgLink: dl720.tgLink || '',
       subUrl: movie.subUrl || ''
     });
+
+    if (movie.downloads && Array.isArray(movie.downloads) && movie.downloads.length > 0) {
+      setDownloadsList(movie.downloads.map(d => ({
+        res: d.res || '720p',
+        size: d.size || '1.46GB',
+        quality: d.quality || movie.quality || 'WEB-DL',
+        srv1: d.srv1 || d.url || '',
+        pd720: d.pd720 || d.srv2 || '',
+        pd1080: d.pd1080 || d.srv2 || '',
+        tgLink: d.tgLink || ''
+      })));
+    }
+
+    if (movie.seasons && Array.isArray(movie.seasons) && movie.seasons.length > 0) {
+      setSeasonsList(movie.seasons);
+    }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -139,11 +164,82 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
       description: '',
       streamUrl: '',
       streamUrl2: '',
-      pd720: '',
-      pd1080: '',
-      tgLink: '',
       subUrl: ''
     });
+    setDownloadsList([
+      { res: '720p', size: '1.46GB', quality: 'WEB-DL', srv1: '', pd720: '', tgLink: '' },
+      { res: '1080p', size: '2.12GB', quality: 'WEB-DL', srv1: '', pd1080: '', tgLink: '' }
+    ]);
+    setSeasonsList([
+      {
+        season: 1,
+        seasonName: 'Season 1',
+        episodes: [
+          { ep: 1, title: 'Episode 1', airDate: '', runtime: '24m', srv1: '', pd720: '' }
+        ]
+      }
+    ]);
+  };
+
+  // Handlers for Unlimited Dynamic Download Links
+  const handleAddDownloadLink = () => {
+    setDownloadsList([
+      ...downloadsList,
+      { res: '480p', size: '700MB', quality: movieForm.quality || 'WEB-DL', srv1: '', pd720: '', tgLink: '' }
+    ]);
+  };
+
+  const handleRemoveDownloadLink = (index) => {
+    if (downloadsList.length <= 1) return alert('අවම වශයෙන් එක් Download Link එකක් තැබිය යුතුය.');
+    setDownloadsList(downloadsList.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateDownloadLink = (index, field, value) => {
+    const updated = [...downloadsList];
+    updated[index][field] = value;
+    setDownloadsList(updated);
+  };
+
+  // Handlers for Unlimited Seasons & Episodes
+  const handleAddSeason = () => {
+    const nextSeasonNum = seasonsList.length + 1;
+    setSeasonsList([
+      ...seasonsList,
+      {
+        season: nextSeasonNum,
+        seasonName: `Season ${nextSeasonNum}`,
+        episodes: [
+          { ep: 1, title: 'Episode 1', airDate: '', runtime: '24m', srv1: '', pd720: '' }
+        ]
+      }
+    ]);
+  };
+
+  const handleAddEpisode = (seasonIdx) => {
+    const updated = [...seasonsList];
+    const nextEpNum = updated[seasonIdx].episodes.length + 1;
+    updated[seasonIdx].episodes.push({
+      ep: nextEpNum,
+      title: `Episode ${nextEpNum}`,
+      airDate: '',
+      runtime: '24m',
+      srv1: '',
+      pd720: ''
+    });
+    setSeasonsList(updated);
+  };
+
+  const handleRemoveEpisode = (seasonIdx, epIdx) => {
+    const updated = [...seasonsList];
+    if (updated[seasonIdx].episodes.length <= 1) return alert('අවම වශයෙන් එක් Episode එකක් තිබිය යුතුය.');
+    updated[seasonIdx].episodes = updated[seasonIdx].episodes.filter((_, i) => i !== epIdx);
+    setSeasonsList(updated);
+  };
+
+  const handleUpdateEpisode = (seasonIdx, epIdx, field, value) => {
+    const updated = [...seasonsList];
+    updated[seasonIdx].episodes[epIdx][field] = value;
+    setSeasonsList(updated);
   };
 
   const handleSaveMovieForm = async (e) => {
@@ -153,29 +249,6 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
     const stillsArray = movieForm.stills
       ? movieForm.stills.split(',').map(s => s.trim()).filter(Boolean)
       : [movieForm.backdrop, movieForm.poster].filter(Boolean);
-
-    const downloadsArray = [
-      {
-        res: '720p',
-        size: '1.46GB',
-        quality: movieForm.quality,
-        srv1: movieForm.pd720 || '',
-        srv2: movieForm.pd720 || '',
-        pd720: movieForm.pd720 || '',
-        tgLink: movieForm.tgLink || 'https://t.me/Cineflix_cloud_Bot',
-        url: '#'
-      },
-      {
-        res: '1080p',
-        size: '2.12GB',
-        quality: movieForm.quality,
-        srv1: movieForm.pd1080 || '',
-        srv2: movieForm.pd1080 || '',
-        pd1080: movieForm.pd1080 || '',
-        tgLink: movieForm.tgLink || 'https://t.me/Cineflix_cloud_Bot',
-        url: '#'
-      }
-    ];
 
     const movieObj = {
       title: movieForm.title,
@@ -196,7 +269,8 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
       description: movieForm.description,
       streamUrl: movieForm.streamUrl,
       streamUrl2: movieForm.streamUrl2,
-      downloads: downloadsArray,
+      downloads: downloadsList,
+      seasons: movieForm.type === 'tv' ? seasonsList : [],
       subUrl: movieForm.subUrl,
       addedAt: Date.now()
     };
@@ -272,7 +346,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
               activeTab === 'movies' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
             }`}
           >
-            <Film className="w-4 h-4" /> Movie Catalog ({movies.length})
+            <Film className="w-4 h-4" /> Movie & Series Catalog ({movies.length})
           </button>
 
           <button
@@ -353,14 +427,14 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
           </div>
         )}
 
-        {/* Tab 1: Movie Form & Catalog */}
+        {/* Tab 1: Movie & TV Series Form & Catalog */}
         {activeTab === 'movies' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Form Column */}
-            <div className="lg:col-span-2 bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4">
+            <div className="lg:col-span-2 bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <h3 className="font-bold text-white text-sm">
-                  {editingMovieId ? '✏️ Edit Movie Details' : '➕ Add New Movie'}
+                  {editingMovieId ? '✏️ Edit Movie / TV Series Details' : '➕ Add New Movie or TV Series'}
                 </h3>
                 {editingMovieId && (
                   <button onClick={handleResetForm} className="text-xs text-red-500 font-bold hover:underline">
@@ -371,18 +445,18 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
               {savedSuccess && (
                 <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Movie saved successfully to Firebase!
+                  <Check className="w-4 h-4 text-emerald-400" /> Item saved successfully to Database!
                 </div>
               )}
 
               <form onSubmit={handleSaveMovieForm} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase">Movie Title *</label>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Title *</label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Dhamaka"
+                      placeholder="e.g. Dhamaka / High School DxD"
                       value={movieForm.title}
                       onChange={(e) => setMovieForm({ ...movieForm, title: e.target.value })}
                       className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
@@ -407,10 +481,10 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                     <select
                       value={movieForm.type}
                       onChange={(e) => setMovieForm({ ...movieForm, type: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600 font-bold text-red-400"
                     >
                       <option value="movie">Movie</option>
-                      <option value="tv">TV Series</option>
+                      <option value="tv">TV Series / Anime</option>
                     </select>
                   </div>
 
@@ -474,30 +548,6 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase">Pixeldrain 720p URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://pixeldrain.com/u/..."
-                      value={movieForm.pd720}
-                      onChange={(e) => setMovieForm({ ...movieForm, pd720: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase">Pixeldrain 1080p URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://pixeldrain.com/u/..."
-                      value={movieForm.pd1080}
-                      onChange={(e) => setMovieForm({ ...movieForm, pd1080: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase">Stream Player URL (Server 1)</label>
                     <input
                       type="text"
@@ -520,11 +570,143 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                   </div>
                 </div>
 
+                {/* DYNAMIC UNLIMITED DOWNLOAD LINKS MANAGER */}
+                <div className="p-4 bg-black/40 border border-white/10 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-red-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Download className="w-4 h-4" /> Download Links / Qualities Manager ({downloadsList.length})
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={handleAddDownloadLink}
+                      className="px-3 py-1.5 bg-red-600/30 border border-red-500/50 hover:bg-red-600 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Quality Link
+                    </button>
+                  </div>
+
+                  {downloadsList.map((dl, idx) => (
+                    <div key={idx} className="p-3 bg-neutral-900 border border-white/5 rounded-xl space-y-2 relative group">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                        <span className="text-[10px] font-extrabold text-gray-400">Quality Link #{idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDownloadLink(idx)}
+                          className="text-red-500 hover:text-red-400 text-[10px] font-bold"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Resolution (e.g. 720p / 1080p / 4K)"
+                          value={dl.res}
+                          onChange={(e) => handleUpdateDownloadLink(idx, 'res', e.target.value)}
+                          className="bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 font-bold"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Size (e.g. 1.46GB)"
+                          value={dl.size}
+                          onChange={(e) => handleUpdateDownloadLink(idx, 'size', e.target.value)}
+                          className="bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-red-500"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Direct / Pixeldrain URL"
+                          value={dl.srv1 || dl.pd720 || dl.pd1080 || ''}
+                          onChange={(e) => handleUpdateDownloadLink(idx, 'srv1', e.target.value)}
+                          className="bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-red-500"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* DYNAMIC UNLIMITED SEASONS & EPISODES MANAGER (FOR TV SERIES) */}
+                {movieForm.type === 'tv' && (
+                  <div className="p-4 bg-black/40 border border-emerald-500/30 rounded-2xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Tv className="w-4 h-4" /> TV Series Seasons & Episodes Manager ({seasonsList.length} Seasons)
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={handleAddSeason}
+                        className="px-3 py-1.5 bg-emerald-600/30 border border-emerald-500/50 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Season
+                      </button>
+                    </div>
+
+                    {seasonsList.map((season, sIdx) => (
+                      <div key={sIdx} className="p-3 bg-neutral-900 border border-emerald-500/20 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                          <input
+                            type="text"
+                            value={season.seasonName}
+                            onChange={(e) => {
+                              const updated = [...seasonsList];
+                              updated[sIdx].seasonName = e.target.value;
+                              setSeasonsList(updated);
+                            }}
+                            className="bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs font-bold text-emerald-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAddEpisode(sIdx)}
+                            className="px-2.5 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold"
+                          >
+                            + Add Episode
+                          </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          {season.episodes.map((ep, eIdx) => (
+                            <div key={eIdx} className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-black/40 p-2 rounded-lg items-center">
+                              <input
+                                type="text"
+                                placeholder="Episode Title"
+                                value={ep.title}
+                                onChange={(e) => handleUpdateEpisode(sIdx, eIdx, 'title', e.target.value)}
+                                className="bg-black/60 border border-white/10 rounded px-2 py-1 text-[11px] text-white"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Runtime (24m)"
+                                value={ep.runtime}
+                                onChange={(e) => handleUpdateEpisode(sIdx, eIdx, 'runtime', e.target.value)}
+                                className="bg-black/60 border border-white/10 rounded px-2 py-1 text-[11px] text-white"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Download Link"
+                                value={ep.srv1}
+                                onChange={(e) => handleUpdateEpisode(sIdx, eIdx, 'srv1', e.target.value)}
+                                className="bg-black/60 border border-white/10 rounded px-2 py-1 text-[11px] text-white"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveEpisode(sIdx, eIdx)}
+                                className="text-red-500 text-[10px] font-bold hover:underline justify-self-end"
+                              >
+                                Delete Ep
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase">Overview Description</label>
                   <textarea
                     rows={3}
-                    placeholder="Enter movie plot synopsis..."
+                    placeholder="Enter movie / series plot synopsis..."
                     value={movieForm.description}
                     onChange={(e) => setMovieForm({ ...movieForm, description: e.target.value })}
                     className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-red-600"
@@ -536,13 +718,13 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                   className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{editingMovieId ? 'Update Movie in Database' : 'Save Movie to Database'}</span>
+                  <span>{editingMovieId ? 'Update Item in Database' : 'Save Item to Database'}</span>
                 </button>
               </form>
             </div>
 
             {/* Catalog List Column */}
-            <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4 flex flex-col h-[680px]">
+            <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4 flex flex-col h-[780px]">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-white text-sm">Catalog List</h3>
                 <span className="text-xs text-gray-400">{filteredMovies.length} items</span>
@@ -564,7 +746,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                   <div key={m.id} className="p-3 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between hover:border-white/20 transition">
                     <div className="min-w-0 flex-1 pr-2">
                       <h4 className="text-xs font-bold text-white truncate">{m.title}</h4>
-                      <span className="text-[10px] text-gray-400">{m.year}</span>
+                      <span className="text-[10px] text-gray-400">{m.year} • {m.type === 'tv' ? 'TV Series' : 'Movie'}</span>
                     </div>
 
                     <div className="flex items-center gap-1">
@@ -652,7 +834,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
               </div>
               <div className="p-4 bg-black/40 border border-white/5 rounded-xl text-center space-y-1">
                 <span className="text-2xl font-black text-amber-400 font-mono">{movies.length}</span>
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Total Movies</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Total Movies & Series</p>
               </div>
             </div>
           </div>
