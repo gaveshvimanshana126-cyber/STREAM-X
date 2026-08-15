@@ -301,9 +301,10 @@ async function processFirebaseBotQueue() {
     const data = await res.json();
     if (!data || typeof data !== 'object') return;
 
-    const pendingRequests = Object.entries(data)
+    // Filter pending & processing requests in queue
+    const allPending = Object.entries(data)
       .map(([key, val]) => ({ reqId: key, ...val }))
-      .filter(r => r.status === 'pending');
+      .filter(r => r.status === 'pending' || r.status === 'processing');
 
     for (let i = 0; i < pendingRequests.length; i++) {
       const req = pendingRequests[i];
@@ -313,28 +314,26 @@ async function processFirebaseBotQueue() {
       const movieYear = req.movieYear ? `(${req.movieYear})` : '';
       const qualityText = req.quality || '720p';
 
-      console.log(`🚀 Processing Direct WhatsApp Request for [${userName}] (${req.phone}): ${movieTitle}`);
+      // Calculate actual position in active queue (1st, 2nd, etc.)
+      const queuePosition = i + 1;
 
-      // Mark request as processing immediately in Firebase RTDB to prevent repeat loops
+      console.log(`🚀 Processing Direct WhatsApp Request #${queuePosition} for [${userName}] (${req.phone}): ${movieTitle}`);
+
+      // Mark request as processing immediately in Firebase RTDB
       await fetch(`${FIREBASE_DB_URL}/bot_requests/${req.reqId}/status.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify('processing')
       });
 
-      // Step 1: Enqueued notice matching Screenshot 2
-      const msg1 = `🎬 *${movieTitle}* පේළිමට එක් කරන ලදී.\n👤 *නම:* ${userName}\n🔢 *ඔබගේ වාරය:* පේළිමේ 1 වෙනියා\n\nඔබගේ වාරය පැමිණි විගස බාගත කිරීම ආරම්භ කරනු ඇත.`;
+      // Step 1: Enqueued notice with REAL queue position
+      const msg1 = `🎬 *${movieTitle}* පේළිමට එක් කරන ලදී.\n👤 *නම:* ${userName}\n🔢 *ඔබගේ වාරය:* පේළිමේ ${queuePosition} වෙනියා\n\nඔබගේ වාරය පැමිණි විගස බාගත කිරීම ආරම්භ කරනු ඇත.`;
       await sock.sendMessage(jid, { text: msg1 });
-      await delay(2000);
+      await delay(1500);
 
-      // Step 2: Server downloading notice matching Screenshot 2
+      // Step 2: Server downloading notice
       const msg2 = `👋 *ආයුබෝවන් ${userName}*, ඔබගේ *${movieTitle} ${movieYear}* චිත්‍රපටය මේ මොහොතේ අපගේ සර්වර් වෙත බාගත කිරීම ආරම්භ විය. කරුණාකර රැඳී සිටින්න... ⏳`;
       await sock.sendMessage(jid, { text: msg2 });
-      await delay(2500);
-
-      // Step 3: Downloaded notice matching Screenshot 1 & 2
-      const msg3 = `📦 *${movieTitle}* සාර්ථකව ලබා ගත්තා. දැන් එය ඔබගේ WhatsApp වෙත එවමින් පවති. (ෆයිල් සයිස් එක අනුව මෙය WhatsApp වෙත පැමිණීමට සුළු වේලාවක් ගත විය හැක) 🚀`;
-      await sock.sendMessage(jid, { text: msg3 });
       await delay(2000);
 
       // Fetch movie download details from database
@@ -344,10 +343,15 @@ async function processFirebaseBotQueue() {
       const downloadUrl = targetDownload?.srv1 || targetDownload?.srv2 || targetDownload?.url || targetMovie?.subUrl;
       const fileSize = targetDownload?.size || '216 MB';
 
-      // Step 4: Uploading notice matching Screenshot 1 & 2
+      // Step 3: Server fetched notice (Sent right before file upload begins)
+      const msg3 = `📦 *${movieTitle}* සාර්ථකව ලබා ගත්තා. දැන් එය ඔබගේ WhatsApp වෙත එවමින් පවති. (ෆයිල් සයිස් එක අනුව මෙය WhatsApp වෙත පැමිණීමට සුළු වේලාවක් ගත විය හැක) 🚀`;
+      await sock.sendMessage(jid, { text: msg3 });
+      await delay(1500);
+
+      // Step 4: Uploading notice
       const msg4 = `📊 *ෆයිල් එකේ ප්‍රමාණය:* ${fileSize}\n🚀 දැන් මෙය ඔබගේ WhatsApp එකට උඩුගත වෙමින් පවති. කරුණාකර රැඳී සිටින්න...`;
       await sock.sendMessage(jid, { text: msg4 });
-      await delay(2000);
+      await delay(1500);
 
       // Step 5: Deliver Document File (.mp4/.mkv) up to 2GB (2048 MB) or Direct Link for > 2GB
       let documentSent = false;

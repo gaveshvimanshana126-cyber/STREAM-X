@@ -80,11 +80,13 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
     }
   };
 
-  // Open Direct WhatsApp Chat with pre-filled message when clicking quality WhatsApp Bot button
+  // Open Direct WhatsApp Chat with pre-filled dynamic message when clicking quality WhatsApp Bot button
   const handleDirectWaChat = (m, quality = '720p') => {
     const waNumber = localStorage.getItem('cf_wa_num') || '+94771234567';
     const cleanNumber = waNumber.replace(/[^0-9]/g, '');
-    const text = encodeURIComponent(`Hi Cineflix! I want to download ${m.title} (${m.year || ''}) ${quality} via WhatsApp. Movie Code: ${m.id}`);
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const dynamicCode = `${m.id}-${randomSuffix}`;
+    const text = encodeURIComponent(`Hi Cineflix! I want to download ${m.title} (${m.year || ''}) ${quality} via WhatsApp. Movie Code: ${dynamicCode}`);
     window.open(`https://api.whatsapp.com/send?phone=${cleanNumber}&text=${text}`, '_blank');
   };
 
