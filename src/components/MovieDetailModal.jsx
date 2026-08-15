@@ -28,6 +28,17 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
     }
   }, [movie.id]);
 
+  const isTvSeries = movie.type === 'tv' || movie.type === 'series' || (movie.seasons && movie.seasons.length > 0);
+
+  // Sync Clean Address Bar URL for Movies (/movie/slug) vs TV Series (/tv+seris/slug)
+  useEffect(() => {
+    if (movie) {
+      const slug = movie.title ? movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : movie.id;
+      const targetPath = isTvSeries ? `/tv+seris/${slug}` : `/movie/${slug}`;
+      window.history.pushState({ movieId: movie.id }, '', targetPath);
+    }
+  }, [movie, isTvSeries]);
+
   // Fetch real TMDb cast, profile images, trailer, and stills on open
   useEffect(() => {
     let isMounted = true;
@@ -82,8 +93,6 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
     movie.backdrop,
     movie.poster
   ].filter(Boolean);
-
-  const isTvSeries = movie.type === 'tv' || movie.type === 'series' || (movie.seasons && movie.seasons.length > 0);
 
   // Generate Default Seasons & Episodes for TV Series if missing
   const seasonsList = (movie.seasons && movie.seasons.length > 0) ? movie.seasons : [
@@ -500,8 +509,8 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </div>
         )}
 
-        {/* 12. SUBTITLES SECTION */}
-        {movie.subUrl && (
+        {/* 12. SUBTITLES SECTION (SHOW FOR MOVIES ONLY - HIDE FOR TV SERIES) */}
+        {!isTvSeries && movie.subUrl && (
           <div className="space-y-3 pt-2 z-10">
             <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
               <Subtitles className="w-4 h-4" />

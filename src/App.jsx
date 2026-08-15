@@ -41,6 +41,7 @@ export default function App() {
   // Active Modals & Views State
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [downloadFlowData, setDownloadFlowData] = useState(null);
+  const [waDeliveryData, setWaDeliveryData] = useState(null); // { movie, quality }
   const [selectedEpisode, setSelectedEpisode] = useState(null);
   const [pixeldrainUrl, setPixeldrainUrl] = useState(null);
   const [selectedActor, setSelectedActor] = useState(null);
@@ -198,13 +199,27 @@ export default function App() {
         }
       }
 
+      // Check Clean Movie URL Pathnames (/movie/slug) or TV Series URL Pathnames (/tv+seris/slug, /tv-series/slug)
+      if (pathname.startsWith('movie/') || pathname.startsWith('tv+seris/') || pathname.startsWith('tv-series/') || pathname.startsWith('tv/')) {
+        const itemSlug = pathname.replace(/^(movie|tv\+seris|tv-series|tv)\//, '');
+        const found = movies.find(m => {
+          const slug = m.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          return slug === itemSlug || m.id?.toString() === itemSlug;
+        });
+        if (found) {
+          setSelectedMovie(found);
+          setDownloadFlowData(null);
+          return;
+        }
+      }
+
       if (!pathname) {
         setSelectedMovie(null);
         setDownloadFlowData(null);
         return;
       }
 
-      // Check Direct Movie Path
+      // Check Direct Movie Path fallback
       if (pathname && !pathname.includes('=')) {
         const found = movies.find(m => {
           const slug = m.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

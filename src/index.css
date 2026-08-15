@@ -342,10 +342,10 @@
   top: -50px;
   left: 50%;
   transform: translateX(-50%);
-  width: 120%;
-  max-width: 900px;
-  height: 650px;
-  background: radial-gradient(circle at 50% 30%, rgba(232, 38, 42, 0.32) 0%, rgba(160, 20, 25, 0.15) 50%, transparent 75%);
+  width: 100%;
+  max-width: 800px;
+  height: 550px;
+  background: radial-gradient(circle at 50% 30%, rgba(232, 38, 42, 0.28) 0%, rgba(160, 20, 25, 0.12) 50%, transparent 75%);
   filter: blur(65px);
   pointer-events: none;
   animation: ambientGlowPulse 7s ease-in-out infinite;
