@@ -34,79 +34,29 @@ app.use(express.static(path.join(__dirname, 'public')));
 let sock = null;
 let isConnected = false;
 let latestQRImage = null;
-let dbStatus = 'Local Database (File storage)';
+let dbStatus = 'Firebase Realtime DB (Live Sync)';
 
-// MongoDB Connection Setup
-const MONGODB_URI = process.env.MONGODB_URI || config.mongodbUri;
+const FIREBASE_DB_URL = 'https://sutable-99848-default-rtdb.firebaseio.com';
 
-// Mongoose Schemas
-const botSessionSchema = new mongoose.Schema({
-  phoneNumber: String,
-  connectedAt: { type: Date, default: Date.now },
-  status: String,
-});
-const BotSession = mongoose.model('BotSession', botSessionSchema);
-
-const movieSchema = new mongoose.Schema({
-  id: String,
-  title: String,
-  year: String,
-  type: String,
-  quality: String,
-  genre: String,
-  rating: String,
-  downloads: Array,
-  poster: String,
-  backdrop: String,
-  description: String,
-  subBy: String,
-  subUrl: String,
-  addedAt: { type: Number, default: Date.now }
-});
-const Movie = mongoose.model('Movie', movieSchema);
-
-if (MONGODB_URI) {
-  mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000
-  })
-    .then(async () => {
-      console.log('🍃 Connected to MongoDB Atlas Database (cluster0.sntej6n.mongodb.net) Successfully!');
-      dbStatus = 'MongoDB Atlas (Connected)';
-
-      try {
-        const count = await Movie.countDocuments();
-        if (count === 0) {
-          const moviesPath = path.resolve(__dirname, config.moviesJsonPath || '../src/data/initialMovies.json');
-          if (fs.existsSync(moviesPath)) {
-            const data = JSON.parse(fs.readFileSync(moviesPath, 'utf8'));
-            if (Array.isArray(data) && data.length > 0) {
-              await Movie.insertMany(data);
-              console.log(`📦 Successfully seeded ${data.length} initial movies into MongoDB Atlas!`);
-            }
-          }
-        } else {
-          console.log(`📊 Found ${count} existing movies in MongoDB database.`);
-        }
-      } catch (seedErr) {
-        console.error('MongoDB movie seeding note:', seedErr.message);
-      }
-    })
-    .catch((err) => {
-      console.error('⚠️ MongoDB connection note (using local database fallback):', err.message);
-    });
-}
-
-// Helper function to load movies
+// Helper function to load movies from Firebase RTDB with fallbacks
 async function loadMovies() {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const dbMovies = await Movie.find().lean();
-      if (dbMovies && dbMovies.length > 0) return dbMovies;
-    } catch (err) {
-      console.error('Error fetching movies from MongoDB:', err.message);
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/movies.json`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data === 'object') {
+        const arr = Object.entries(data).map(([key, val]) => ({
+          id: val.id || key,
+          ...val
+        })).filter(Boolean);
+        if (arr.length > 0) return arr;
+      }
     }
+  } catch (rtdbErr) {
+    console.warn('Firebase RTDB fetch note:', rtdbErr.message);
   }
 
+  // Fallback to local JSON
   try {
     const moviesPath = path.resolve(__dirname, config.moviesJsonPath || '../src/data/initialMovies.json');
     if (fs.existsSync(moviesPath)) {
@@ -126,7 +76,7 @@ async function startBot() {
   const { version } = await fetchLatestBaileysVersion();
 
   console.log(`\n==================================================`);
-  console.log(` 🎬 CINEFLIX WHATSAPP BOT (Web Pairing & Web QR) `);
+  console.log(` 🎬 CINEFLIX WHATSAPP BOT (Live Firebase RTDB) `);
   console.log(` Baileys Version: ${version.join('.')}`);
   console.log(` Database Mode: ${dbStatus}`);
   console.log(`==================================================\n`);
@@ -169,18 +119,6 @@ async function startBot() {
       isConnected = true;
       latestQRImage = null;
       console.log('✅ WhatsApp Bot Connected Successfully!');
-
-      if (mongoose.connection.readyState === 1 && sock.user) {
-        try {
-          await BotSession.create({
-            phoneNumber: sock.user.id.split(':')[0],
-            status: 'connected',
-          });
-          console.log('💾 Paired phone number saved to MongoDB session history.');
-        } catch (dbErr) {
-          console.error('Error saving session to MongoDB:', dbErr.message);
-        }
-      }
     }
   });
 
@@ -204,7 +142,7 @@ async function startBot() {
         return;
       }
 
-      if (cleanText.startsWith('.') || cleanText.length > 5) {
+      if (cleanText.startsWith('.') || cleanText.length > 3) {
         await handleMovieDownloadRequest(sock, from, cleanText, msg);
       }
     } catch (err) {

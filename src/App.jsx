@@ -21,7 +21,7 @@ import AdminLoginModal from './components/AdminLoginModal.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
 
 import { getMovies } from './data/moviesData.js';
-import { subscribeRtdb, trackVisitor, setAuthToken } from './services/firebase.js';
+import { subscribeRtdb, trackVisitor, setAuthToken, rtdbGet } from './services/firebase.js';
 
 export default function App() {
   const [movies, setMovies] = useState(getMovies());
@@ -63,7 +63,21 @@ export default function App() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Restore User Session & Track Visitor
+  // Centralized Movie Selection with Clean URL PushState (/movie-slug)
+  const handleSelectMovie = (movie) => {
+    if (movie) {
+      const slug = movie.title ? movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : movie.id;
+      window.history.pushState({ movieId: movie.id }, '', '/' + slug);
+      setSelectedMovie(movie);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.history.pushState({}, '', '/');
+      setSelectedMovie(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Restore User Session & Initial Live DB Load
   useEffect(() => {
     trackVisitor();
 
@@ -74,6 +88,17 @@ export default function App() {
         if (savedUser.idToken) setAuthToken(savedUser.idToken);
       }
     } catch (e) { }
+
+    // Direct initial RTDB Load for Instant Movies
+    rtdbGet('movies').then(remoteData => {
+      if (remoteData && typeof remoteData === 'object') {
+        const movieArray = Object.entries(remoteData).map(([key, val]) => ({
+          id: val.id || key,
+          ...val
+        })).filter(Boolean);
+        if (movieArray.length > 0) setMovies(movieArray);
+      }
+    }).catch(() => {});
 
     // Initial Loading Screen Timer
     const timer = setTimeout(() => {
@@ -144,6 +169,11 @@ export default function App() {
         return;
       }
 
+      if (!pathname) {
+        setSelectedMovie(null);
+        return;
+      }
+
       // Check Direct Movie Path
       if (pathname && !pathname.includes('=')) {
         const found = movies.find(m => {
@@ -160,6 +190,16 @@ export default function App() {
     window.addEventListener('popstate', handleUrlChange);
     return () => window.removeEventListener('popstate', handleUrlChange);
   }, [movies, currentUser]);
+
+  // Search Input change with Clean Query Parameter URL (/q=keyword)
+  const handleSearchChange = (term) => {
+    setSearchTerm(term);
+    if (term.trim()) {
+      window.history.pushState({}, '', `/q=${encodeURIComponent(term.trim())}`);
+    } else {
+      window.history.pushState({}, '', '/');
+    }
+  };
 
   // Filter Logic matching index (45).html
   const filteredMovies = useMemo(() => {
@@ -218,7 +258,7 @@ export default function App() {
       {/* Navigation Bar */}
       <Navbar
         searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
+        setSearchTerm={handleSearchChange}
         onOpenAuth={() => setShowAuthModal(true)}
         onOpenProfile={() => setShowProfileModal(true)}
         onOpenNotifs={() => setShowNotifsPanel(true)}
@@ -233,98 +273,101 @@ export default function App() {
         currentUser={currentUser}
       />
 
-      {/* Hero Featured Slider */}
-      {!searchTerm && selectedCategory === 'all_movies' && selectedYear === 'all' && (
-        <HeroSlider
-          movies={movies}
-          onSelectMovie={(m) => setSelectedMovie(m)}
-        />
-      )}
+      {/* Main Container */}
+      <main className="pb-16">
+        {selectedMovie ? (
+          /* Movie Detail Full-Page View */
+          <MovieDetailModal
+            movie={selectedMovie}
+            onClose={() => handleSelectMovie(null)}
+            onOpenWhatsAppDl={(m) => {
+              const waNumber = localStorage.getItem('cf_wa_num') || '+94771234567';
+              const text = `Hi Cineflix! I want to download ${m.title} (${m.year || ''}) via WhatsApp. Movie Code: ${m.id}`;
+              window.open(`https://wa.me/${waNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+            }}
+            onOpenSubDl={(m) => {
+              const slug = m.title ? m.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : m.id;
+              window.history.pushState({}, '', `/subdetails/${slug}`);
+              setSelectedMovie(m);
+            }}
+          />
+        ) : (
+          <>
+            {/* Hero Featured Slider */}
+            {!searchTerm && selectedCategory === 'all_movies' && selectedYear === 'all' && (
+              <HeroSlider
+                movies={movies}
+                onSelectMovie={handleSelectMovie}
+              />
+            )}
 
-      {/* Category & Year Filters */}
-      <CategoryFilter
-        selectedCategory={selectedCategory}
-        onSelectCategory={(cat) => setSelectedCategory(cat)}
-        selectedYear={selectedYear}
-        onSelectYear={(yr) => setSelectedYear(yr)}
-      />
+            {/* Category & Year Filters */}
+            <CategoryFilter
+              selectedCategory={selectedCategory}
+              onSelectCategory={(cat) => setSelectedCategory(cat)}
+              selectedYear={selectedYear}
+              onSelectYear={(yr) => setSelectedYear(yr)}
+            />
 
-      {/* Movie Catalog Grid */}
-      <main className="max-w-7xl mx-auto px-4 pb-16">
-        <MovieGrid
-          movies={filteredMovies}
-          onSelectMovie={(m) => setSelectedMovie(m)}
-        />
+            {/* Movie Catalog Grid */}
+            <MovieGrid
+              movies={filteredMovies}
+              onSelectMovie={handleSelectMovie}
+            />
+          </>
+        )}
       </main>
 
-      {/* Modals & Sub-pages */}
-      {selectedMovie && (
-        <MovieDetailModal
-          movie={{ ...selectedMovie, allMovies: movies }}
-          onClose={() => setSelectedMovie(null)}
-          onOpenPixeldrain={(url) => setPixeldrainUrl(url)}
-          onOpenEpisode={(m, ep, sName) => setSelectedEpisode({ movie: m, episode: ep, seasonName: sName })}
-          onSelectMovie={(m) => setSelectedMovie(m)}
-          onToast={triggerToast}
-        />
-      )}
-
-      {selectedEpisode && (
-        <EpisodeDetailModal
-          isOpen={!!selectedEpisode}
-          onClose={() => setSelectedEpisode(null)}
-          movie={selectedEpisode.movie}
-          episode={selectedEpisode.episode}
-          seasonName={selectedEpisode.seasonName}
-          onSelectEpisode={(ep, sName) => setSelectedEpisode({ ...selectedEpisode, episode: ep, seasonName: sName })}
-          onOpenPixeldrain={(url) => setPixeldrainUrl(url)}
-          onToast={triggerToast}
-        />
-      )}
-
-      {pixeldrainUrl && (
-        <PixeldrainDownloadModal
-          isOpen={!!pixeldrainUrl}
-          onClose={() => setPixeldrainUrl(null)}
-          downloadUrl={pixeldrainUrl}
-          onToast={triggerToast}
-        />
-      )}
-
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          triggerToast(`✓ Welcome back, ${user.displayName}!`);
-        }}
+      {/* Additional Page Modals */}
+      <EpisodeDetailModal
+        isOpen={!!selectedEpisode}
+        onClose={() => setSelectedEpisode(null)}
+        movie={selectedMovie}
+        episode={selectedEpisode?.episode}
+        seasonName={selectedEpisode?.seasonName}
+        onOpenPixeldrain={(url) => setPixeldrainUrl(url)}
+        onToast={triggerToast}
       />
 
-      <ProfileModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        user={currentUser}
-        onLogout={() => {
-          setCurrentUser(null);
-          sessionStorage.removeItem('cf_user');
-          triggerToast('Logged out');
-        }}
-        movies={movies}
-        onOpenMovie={(m) => setSelectedMovie(m)}
-      />
-
-      <NotificationPanel
-        isOpen={showNotifsPanel}
-        onClose={() => setShowNotifsPanel(false)}
-        isAdmin={currentUser?.isAdmin}
-        movies={movies}
-        onOpenMovie={(m) => setSelectedMovie(m)}
+      <PixeldrainDownloadModal
+        isOpen={!!pixeldrainUrl}
+        onClose={() => setPixeldrainUrl(null)}
+        downloadUrl={pixeldrainUrl}
+        movieId={selectedMovie?.id}
+        onToast={triggerToast}
       />
 
       <RequestCenterModal
         isOpen={showRequestModal}
         onClose={() => setShowRequestModal(false)}
         onToast={triggerToast}
+      />
+
+      <NotificationPanel
+        isOpen={showNotifsPanel}
+        onClose={() => setShowNotifsPanel(false)}
+        onOpenMovie={handleSelectMovie}
+      />
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          triggerToast(`Welcome back, ${user.displayName}!`);
+        }}
+      />
+
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        currentUser={currentUser}
+        onLogout={() => {
+          setCurrentUser(null);
+          sessionStorage.removeItem('cf_user');
+          triggerToast('Logged out successfully.');
+        }}
+        onOpenMovie={handleSelectMovie}
       />
 
       <UpcomingMoviesPage
@@ -340,8 +383,10 @@ export default function App() {
       <GenresPage
         isOpen={showGenresPage}
         onClose={() => setShowGenresPage(false)}
-        onSelectGenre={(genre) => setSelectedCategory(genre)}
-        movies={movies}
+        onSelectGenre={(genre) => {
+          setSelectedCategory(genre);
+          setShowGenresPage(false);
+        }}
       />
 
       <ActorsPage
@@ -349,25 +394,27 @@ export default function App() {
         onClose={() => setSelectedActor(null)}
         actorName={selectedActor}
         movies={movies}
-        onOpenMovie={(m) => setSelectedMovie(m)}
+        onOpenMovie={handleSelectMovie}
       />
 
       <FullCastPage
         isOpen={showFullCastPage}
         onClose={() => setShowFullCastPage(false)}
         movies={movies}
-        onSelectActor={(actorName) => setSelectedActor(actorName)}
+        onSelectActor={(actorName) => {
+          setShowFullCastPage(false);
+          setSelectedActor(actorName);
+        }}
       />
 
-      {/* Admin Logins & Panel */}
+      {/* Admin Modals */}
       {showAdminLogin && (
         <AdminLoginModal
-          isOpen={showAdminLogin}
-          onClose={() => setShowAdminLogin(false)}
           onLoginSuccess={() => {
             setShowAdminLogin(false);
             setShowAdmin(true);
           }}
+          onClose={() => setShowAdminLogin(false)}
         />
       )}
 
@@ -375,15 +422,18 @@ export default function App() {
         <AdminPanel
           movies={movies}
           onRefreshMovies={() => {
-            // Refreshed via live subscription
+            rtdbGet('movies').then(data => {
+              if (data && typeof data === 'object') {
+                const arr = Object.entries(data).map(([k, v]) => ({ id: v.id || k, ...v }));
+                setMovies(arr);
+              }
+            });
           }}
           onClose={() => setShowAdmin(false)}
-          onLogout={() => {
-            setShowAdmin(false);
-            triggerToast('Admin logged out');
-          }}
+          onLogout={() => setShowAdmin(false)}
         />
       )}
+
     </div>
   );
 }
