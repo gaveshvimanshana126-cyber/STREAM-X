@@ -192,7 +192,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </div>
         </div>
 
-        {/* 8. TOP CAST Section matching screenshot (Real TMDb Profile Photos) */}
+        {/* 8. TOP CAST Section matching screenshot (Real TMDb Profile Photos + Slide Animation) */}
         {castArray.length > 0 && (
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
@@ -200,9 +200,9 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
               <span>TOP CAST</span>
             </h3>
 
-            <div className="flex space-x-4 overflow-x-auto no-scrollbar py-2">
+            <div className="horizontal-slide-container flex space-x-4 overflow-x-auto no-scrollbar py-2">
               {castArray.map((actor, idx) => (
-                <div key={idx} className="flex flex-col items-center text-center space-y-1.5 flex-shrink-0 w-20">
+                <div key={idx} className="slide-animated-item flex flex-col items-center text-center space-y-1.5 flex-shrink-0 w-20 cursor-pointer">
                   <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gray-800 bg-gray-900 shadow flex items-center justify-center">
                     {actor.avatar ? (
                       <img
@@ -225,7 +225,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </div>
         )}
 
-        {/* 9. MOVIE STILLS Marquee Section matching screenshot */}
+        {/* 9. MOVIE STILLS Marquee Section matching screenshot (Slide Animation) */}
         {stillsArray.length > 0 && (
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
@@ -233,9 +233,9 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
               <span>MOVIE STILLS</span>
             </h3>
 
-            <div className="flex space-x-3 overflow-x-auto no-scrollbar py-2">
+            <div className="horizontal-slide-container flex space-x-3 overflow-x-auto no-scrollbar py-2">
               {stillsArray.map((imgUrl, idx) => (
-                <div key={idx} className="w-48 sm:w-60 h-28 sm:h-36 rounded-xl overflow-hidden border border-gray-800 flex-shrink-0 shadow-lg bg-gray-900">
+                <div key={idx} className="slide-animated-item w-48 sm:w-60 h-28 sm:h-36 rounded-xl overflow-hidden border border-gray-800 flex-shrink-0 shadow-lg bg-gray-900 cursor-pointer">
                   <img
                     src={imgUrl}
                     alt={`Movie Still ${idx}`}
@@ -366,73 +366,41 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
                 <span className="text-[10px] text-gray-500 font-bold uppercase">POWERED BY CINEFLIX</span>
               </div>
 
-              {/* 1080P Card */}
-              <div className="p-4 rounded-2xl bg-[#111111] border border-gray-800/90 shadow-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-red-950 to-red-900 border border-red-500/40 flex flex-col items-center justify-center text-center">
-                      <span className="text-[8px] font-extrabold text-red-400 uppercase tracking-wider">FHD</span>
-                      <span className="text-xs font-black text-white font-['Bebas_Neue']">1080P</span>
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white">Direct Download <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">HD</span> <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER</span></h4>
-                      <span className="text-[10px] text-gray-500 font-bold">{dl1080?.size || '1.85GB'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, '1080p', 'movie') : onOpenSubDl(movie))}
-                    className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Direct Download</span>
-                  </button>
-
-                  <button
-                    onClick={() => onOpenWhatsAppDl(movie)}
-                    className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>WhatsApp Bot</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* 720P Card */}
-              <div className="p-4 rounded-2xl bg-[#111111] border border-gray-800/90 shadow-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-red-950 to-red-900 border border-red-500/40 flex flex-col items-center justify-center text-center">
-                      <span className="text-[8px] font-extrabold text-red-400 uppercase tracking-wider">HD</span>
-                      <span className="text-xs font-black text-white font-['Bebas_Neue']">720P</span>
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white">Direct Download <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">HD</span> <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER</span></h4>
-                      <span className="text-[10px] text-gray-500 font-bold">{dl720?.size || '1.46GB'}</span>
+              {/* Dynamic Download Cards from movie.downloads */}
+              {(movie.downloads && movie.downloads.length > 0 ? movie.downloads : [dl1080, dl720]).map((dl, idx) => (
+                <div key={idx} className="p-4 rounded-2xl bg-[#111111] border border-gray-800/90 shadow-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-red-950 to-red-900 border border-red-500/40 flex flex-col items-center justify-center text-center">
+                        <span className="text-[8px] font-extrabold text-red-400 uppercase tracking-wider">{dl.quality || 'HD'}</span>
+                        <span className="text-xs font-black text-white font-['Bebas_Neue']">{dl.res || '720P'}</span>
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white">Direct Download <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">HD</span> <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-extrabold">SERVER {idx + 1}</span></h4>
+                        <span className="text-[10px] text-gray-500 font-bold">{dl.size || '1.46GB'}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, '720p', 'movie') : onOpenSubDl(movie))}
-                    className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Direct Download</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, dl.res || '720p', 'movie') : onOpenSubDl(movie))}
+                      className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Direct Download ({dl.res || 'HD'})</span>
+                    </button>
 
-                  <button
-                    onClick={() => onOpenWhatsAppDl(movie)}
-                    className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>WhatsApp Bot</span>
-                  </button>
+                    <button
+                      onClick={() => onOpenWhatsAppDl(movie)}
+                      className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>WhatsApp Bot</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </>
         )}
