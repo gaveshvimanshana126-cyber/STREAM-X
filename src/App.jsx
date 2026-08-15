@@ -5,6 +5,7 @@ import CategoryFilter from './components/CategoryFilter.jsx';
 import MovieGrid from './components/MovieGrid.jsx';
 import MovieDetailModal from './components/MovieDetailModal.jsx';
 import SubtitleDownloadModal from './components/SubtitleDownloadModal.jsx';
+import PixeldrainDownloadModal from './components/PixeldrainDownloadModal.jsx';
 import WhatsAppDownloadModal from './components/WhatsAppDownloadModal.jsx';
 import RequestMovieModal from './components/RequestMovieModal.jsx';
 import AdminLoginModal from './components/AdminLoginModal.jsx';
@@ -25,6 +26,7 @@ export default function App() {
   // Selected Movie State with Clean Pathname URL Sync
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [subDlMovie, setSubDlMovie] = useState(null);
+  const [pixeldrainData, setPixeldrainData] = useState(null);
 
   // Admin Auth State
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
@@ -46,7 +48,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Parse Clean URL Pathname & Query Params (/admin, /subdetails/..., /q=..., /category=..., /year=..., or /movie-name)
+  // Parse Clean URL Pathname & Query Params (/admin, /subdetails/..., /pixeldrain/..., /q=..., /category=..., /year=..., or /movie-name)
   useEffect(() => {
     const handleUrlChange = () => {
       const pathname = decodeURIComponent(window.location.pathname.replace(/^\/|\/$/g, ''));
@@ -55,6 +57,7 @@ export default function App() {
       if (pathname === 'admin' || pathname === 'admin-panel') {
         setSelectedMovie(null);
         setSubDlMovie(null);
+        setPixeldrainData(null);
         if (isAdminLoggedIn) {
           setShowAdmin(true);
         } else {
@@ -63,7 +66,16 @@ export default function App() {
         return;
       }
 
-      // 1. Subtitle Download Flow Trigger: /subdetails/movie-slug or /subdlmovie/movie-slug
+      // 1. Pixeldrain Helper Trigger: /pixeldrain/... or /dlpb/...
+      if (pathname.startsWith('pixeldrain/') || pathname.startsWith('dlpb/')) {
+        const url = pathname.replace(/^pixeldrain\/|^dlpb\//, '');
+        setPixeldrainData({ url: decodeURIComponent(url) });
+        setSelectedMovie(null);
+        setSubDlMovie(null);
+        return;
+      }
+
+      // 2. Subtitle Download Flow Trigger: /subdetails/movie-slug or /subdlmovie/movie-slug
       if (pathname.startsWith('subdetails/') || pathname.startsWith('subdlmovie/')) {
         const movieSlug = pathname.replace(/^subdetails\/|^subdlmovie\//, '');
         const found = movies.find(m => {
@@ -73,20 +85,22 @@ export default function App() {
         if (found) {
           setSubDlMovie(found);
           setSelectedMovie(null);
+          setPixeldrainData(null);
         }
         return;
       }
 
-      // 2. Search Query Sync: /q=keyword
+      // 3. Search Query Sync: /q=keyword
       if (pathname.startsWith('q=')) {
         const query = pathname.replace('q=', '');
         setSearchTerm(query);
         setSelectedMovie(null);
         setSubDlMovie(null);
+        setPixeldrainData(null);
         return;
       }
 
-      // 3. Category Pill Sync: /category=cat_name
+      // 4. Category Pill Sync: /category=cat_name
       if (pathname.startsWith('category=')) {
         const catSlug = pathname.replace('category=', '');
         if (catSlug === 'tv-series' || catSlug === 'all_series') setSelectedCategory('all_series');
@@ -98,19 +112,21 @@ export default function App() {
         }
         setSelectedMovie(null);
         setSubDlMovie(null);
+        setPixeldrainData(null);
         return;
       }
 
-      // 4. Year Selector Sync: /year=2026
+      // 5. Year Selector Sync: /year=2026
       if (pathname.startsWith('year=')) {
         const yr = pathname.replace('year=', '');
         setSelectedYear(yr);
         setSelectedMovie(null);
         setSubDlMovie(null);
+        setPixeldrainData(null);
         return;
       }
 
-      // 5. Direct Movie Page Sync: /movie-name
+      // 6. Direct Movie Page Sync: /movie-name
       if (pathname && !pathname.startsWith('q=') && !pathname.startsWith('category=') && !pathname.startsWith('year=')) {
         const found = movies.find(m => {
           const slug = m.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -119,13 +135,16 @@ export default function App() {
         if (found) {
           setSelectedMovie(found);
           setSubDlMovie(null);
+          setPixeldrainData(null);
         } else {
           setSelectedMovie(null);
           setSubDlMovie(null);
+          setPixeldrainData(null);
         }
       } else {
         setSelectedMovie(null);
         setSubDlMovie(null);
+        setPixeldrainData(null);
       }
     };
 
@@ -250,8 +269,17 @@ export default function App() {
       {/* Main Content Container */}
       <main className="flex-1 pb-16">
         
-        {/* If Subtitle Download Flow is active, render 3-step Subtitle Download View */}
-        {subDlMovie ? (
+        {/* If Pixeldrain Helper Screen is active */}
+        {pixeldrainData ? (
+          <PixeldrainDownloadModal
+            downloadUrl={pixeldrainData.url}
+            onClose={() => {
+              setPixeldrainData(null);
+              window.history.pushState({}, '', '/');
+            }}
+          />
+        ) : subDlMovie ? (
+          /* If Subtitle Download Flow is active, render 3-step Subtitle Download View */
           <SubtitleDownloadModal
             movie={subDlMovie}
             onClose={() => {
