@@ -5,6 +5,7 @@ import HeroSlider from './components/HeroSlider.jsx';
 import CategoryFilter from './components/CategoryFilter.jsx';
 import MovieGrid from './components/MovieGrid.jsx';
 import MovieDetailModal from './components/MovieDetailModal.jsx';
+import MovieDownloadFlowModal from './components/MovieDownloadFlowModal.jsx';
 import EpisodeDetailModal from './components/EpisodeDetailModal.jsx';
 import PixeldrainDownloadModal from './components/PixeldrainDownloadModal.jsx';
 import RequestCenterModal from './components/RequestCenterModal.jsx';
@@ -38,6 +39,7 @@ export default function App() {
 
   // Active Modals & Views State
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [downloadFlowData, setDownloadFlowData] = useState(null);
   const [selectedEpisode, setSelectedEpisode] = useState(null);
   const [pixeldrainUrl, setPixeldrainUrl] = useState(null);
   const [selectedActor, setSelectedActor] = useState(null);
@@ -69,12 +71,20 @@ export default function App() {
       const slug = movie.title ? movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : movie.id;
       window.history.pushState({ movieId: movie.id }, '', '/' + slug);
       setSelectedMovie(movie);
+      setDownloadFlowData(null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       window.history.pushState({}, '', '/');
       setSelectedMovie(null);
+      setDownloadFlowData(null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  };
+
+  // Open 3-Step Download Flow (Movie or Subtitle)
+  const handleOpenDownloadFlow = (movie, quality = '1080p', type = 'movie') => {
+    setDownloadFlowData({ movie, quality, type });
+    setSelectedMovie(null);
   };
 
   // Restore User Session & Initial Live DB Load
@@ -169,8 +179,27 @@ export default function App() {
         return;
       }
 
+      // Check Download Flow URL Pathnames (/subdetails/..., /loaddl/..., /dldetils/..., /dlmovie/...)
+      if (pathname.startsWith('subdetails/') || pathname.startsWith('loaddl/') || pathname.startsWith('dldetils/') || pathname.startsWith('dlmovie/')) {
+        const movieSlug = pathname.replace(/^(subdetails|loaddl|dldetils|dlmovie)\//, '');
+        const found = movies.find(m => {
+          const slug = m.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          return slug === movieSlug || m.id?.toString() === movieSlug;
+        });
+        if (found) {
+          setDownloadFlowData({
+            movie: found,
+            quality: '1080p',
+            type: pathname.startsWith('subdetails/') ? 'subtitle' : 'movie'
+          });
+          setSelectedMovie(null);
+          return;
+        }
+      }
+
       if (!pathname) {
         setSelectedMovie(null);
+        setDownloadFlowData(null);
         return;
       }
 
@@ -182,6 +211,7 @@ export default function App() {
         });
         if (found) {
           setSelectedMovie(found);
+          setDownloadFlowData(null);
         }
       }
     };
@@ -275,7 +305,24 @@ export default function App() {
 
       {/* Main Container */}
       <main className="pb-16">
-        {selectedMovie ? (
+        {downloadFlowData ? (
+          /* 3-Step Movie & Subtitle Download Flow View */
+          <MovieDownloadFlowModal
+            movie={downloadFlowData.movie}
+            selectedQuality={downloadFlowData.quality}
+            downloadType={downloadFlowData.type}
+            onClose={() => {
+              setDownloadFlowData(null);
+              window.history.pushState({}, '', '/');
+            }}
+            onOpenPixeldrain={(url) => setPixeldrainUrl(url)}
+            onOpenWhatsApp={(m) => {
+              const waNumber = localStorage.getItem('cf_wa_num') || '+94771234567';
+              const text = `Hi Cineflix! I want to download ${m.title} (${m.year || ''}) via WhatsApp. Movie Code: ${m.id}`;
+              window.open(`https://wa.me/${waNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+            }}
+          />
+        ) : selectedMovie ? (
           /* Movie Detail Full-Page View */
           <MovieDetailModal
             movie={selectedMovie}
@@ -285,11 +332,8 @@ export default function App() {
               const text = `Hi Cineflix! I want to download ${m.title} (${m.year || ''}) via WhatsApp. Movie Code: ${m.id}`;
               window.open(`https://wa.me/${waNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
             }}
-            onOpenSubDl={(m) => {
-              const slug = m.title ? m.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : m.id;
-              window.history.pushState({}, '', `/subdetails/${slug}`);
-              setSelectedMovie(m);
-            }}
+            onOpenSubDl={(m) => handleOpenDownloadFlow(m, '720p', 'subtitle')}
+            onOpenMovieDl={(m, quality, type) => handleOpenDownloadFlow(m, quality, type)}
           />
         ) : (
           <>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Star, Clock, Calendar, Download, MessageCircle, Play, Film, Globe, User, Subtitles, ExternalLink, Eye, MessageSquare, Send, Share2, Bookmark, Check } from 'lucide-react';
 import { fetchMovieTmdbDetails } from '../services/tmdb.js';
 
-export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onOpenSubDl }) {
+export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onOpenSubDl, onOpenMovieDl }) {
   if (!movie) return null;
 
   const [activeStream, setActiveStream] = useState(false);
@@ -287,18 +287,17 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
             </div>
 
             <div className="flex items-center gap-2">
-              <a
-                href={dl1080?.srv2 || dl1080?.srv1 || '#'}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center transition-all border border-gray-800"
+              <button
+                onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, '1080p', 'movie') : onOpenSubDl(movie))}
+                className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-              </a>
+                <span>Direct Download</span>
+              </button>
 
               <button
                 onClick={() => onOpenWhatsAppDl(movie)}
-                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow"
+                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>WhatsApp Bot</span>
@@ -322,18 +321,17 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
             </div>
 
             <div className="flex items-center gap-2">
-              <a
-                href={dl720?.srv1 || dl720?.srv2 || '#'}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center transition-all border border-gray-800"
+              <button
+                onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, '720p', 'movie') : onOpenSubDl(movie))}
+                className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all border border-gray-800 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-              </a>
+                <span>Direct Download</span>
+              </button>
 
               <button
                 onClick={() => onOpenWhatsAppDl(movie)}
-                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow"
+                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>WhatsApp Bot</span>
@@ -361,7 +359,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
             </div>
 
             <button
-              onClick={() => onOpenSubDl(movie)}
+              onClick={() => (onOpenMovieDl ? onOpenMovieDl(movie, '720p', 'subtitle') : onOpenSubDl(movie))}
               className="px-6 py-2.5 rounded-xl bg-[#F5C518] hover:bg-yellow-400 text-black font-extrabold text-xs flex items-center space-x-2 transition-all shadow-md cursor-pointer"
             >
               <Download className="w-4 h-4" />

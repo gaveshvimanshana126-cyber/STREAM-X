@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search, User, Image, Subtitles, Bell, ThumbsUp, BarChart2 } from 'lucide-react';
+import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search, User, Image, Subtitles, Bell, ThumbsUp, BarChart2, MessageCircle } from 'lucide-react';
 import { rtdbGet, rtdbSet, rtdbPush, rtdbRemove } from '../services/firebase';
 
 export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout }) {
   const [editingMovieId, setEditingMovieId] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('movies'); // 'movies' | 'requests' | 'notifs' | 'analytics'
+  const [activeTab, setActiveTab] = useState('movies'); // 'movies' | 'bot' | 'requests' | 'notifs' | 'analytics'
   const [requestsList, setRequestsList] = useState([]);
   const [analytics, setAnalytics] = useState({ totalVisitors: 0, viewsDaily: {}, downloadsDaily: {} });
   const [notifMsg, setNotifMsg] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // WhatsApp Bot Settings State
+  const [waNumber, setWaNumber] = useState(localStorage.getItem('cf_wa_num') || '+94771234567');
+  const [waSavedSuccess, setWaSavedSuccess] = useState(false);
 
   // Form State
   const [movieForm, setMovieForm] = useState({
@@ -40,7 +44,31 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
   useEffect(() => {
     loadRequestsData();
     loadAnalyticsData();
+    loadWaNumberSetting();
   }, []);
+
+  const loadWaNumberSetting = async () => {
+    try {
+      const val = await rtdbGet('settings/waNumber');
+      if (val) {
+        setWaNumber(val);
+        localStorage.setItem('cf_wa_num', val);
+      }
+    } catch (e) { }
+  };
+
+  const handleSaveWaNumber = async (e) => {
+    e.preventDefault();
+    try {
+      const cleanNum = waNumber.trim();
+      await rtdbSet('settings/waNumber', cleanNum);
+      localStorage.setItem('cf_wa_num', cleanNum);
+      setWaSavedSuccess(true);
+      setTimeout(() => setWaSavedSuccess(false), 3000);
+    } catch (err) {
+      alert('Error saving WhatsApp number: ' + err.message);
+    }
+  };
 
   const loadRequestsData = async () => {
     try {
@@ -120,17 +148,36 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
   const handleSaveMovieForm = async (e) => {
     e.preventDefault();
-    if (!movieForm.title) return;
+    if (!movieForm.title) return alert('Movie title is required!');
 
-    const stillsList = movieForm.stills
+    const stillsArray = movieForm.stills
       ? movieForm.stills.split(',').map(s => s.trim()).filter(Boolean)
       : [movieForm.backdrop, movieForm.poster].filter(Boolean);
 
-    const mId = editingMovieId || `-m${Date.now().toString(36)}`;
+    const downloadsArray = [
+      {
+        res: '720p',
+        size: '1.46GB',
+        quality: movieForm.quality,
+        srv1: movieForm.pd720 || '',
+        srv2: movieForm.pd720 || '',
+        pd720: movieForm.pd720 || '',
+        tgLink: movieForm.tgLink || 'https://t.me/Cineflix_cloud_Bot',
+        url: '#'
+      },
+      {
+        res: '1080p',
+        size: '2.12GB',
+        quality: movieForm.quality,
+        srv1: movieForm.pd1080 || '',
+        srv2: movieForm.pd1080 || '',
+        pd1080: movieForm.pd1080 || '',
+        tgLink: movieForm.tgLink || 'https://t.me/Cineflix_cloud_Bot',
+        url: '#'
+      }
+    ];
 
     const movieObj = {
-      id: mId,
-      addedAt: Date.now(),
       title: movieForm.title,
       year: movieForm.year,
       type: movieForm.type,
@@ -143,61 +190,41 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
       director: movieForm.director,
       stars: movieForm.stars,
       cast: movieForm.cast,
-      stills: stillsList,
+      stills: stillsArray,
       poster: movieForm.poster,
-      backdrop: movieForm.backdrop || movieForm.poster,
+      backdrop: movieForm.backdrop,
       description: movieForm.description,
       streamUrl: movieForm.streamUrl,
       streamUrl2: movieForm.streamUrl2,
+      downloads: downloadsArray,
       subUrl: movieForm.subUrl,
-      downloads: [
-        { res: '720p', pd720: movieForm.pd720, tgLink: movieForm.tgLink },
-        { res: '1080p', pd1080: movieForm.pd1080, tgLink: movieForm.tgLink }
-      ]
+      addedAt: Date.now()
     };
 
     try {
-      await rtdbSet(`movies/${mId}`, movieObj);
-
-      // Push notification broadcast
-      await rtdbPush('notifications', {
-        msg: editingMovieId ? `Admin updated "${movieForm.title}"` : `Admin added "${movieForm.title}"`,
-        type: 'movie',
-        time: Date.now()
-      });
+      if (editingMovieId) {
+        await rtdbSet(`movies/${editingMovieId}`, { id: editingMovieId, ...movieObj });
+      } else {
+        await rtdbPush('movies', movieObj);
+      }
 
       setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 2500);
-
+      setTimeout(() => setSavedSuccess(false), 3000);
       handleResetForm();
       if (onRefreshMovies) onRefreshMovies();
     } catch (e) {
-      alert('Save failed: ' + e.message);
+      alert('Error saving movie: ' + e.message);
     }
   };
 
-  const handleDeleteMovie = async (mId) => {
-    if (!window.confirm('මෙම චිත්‍රපටය Database එකෙන් සම්පූර්ණයෙන්ම Delete කරන්නද?')) return;
+  const handleDeleteMovie = async (movieId) => {
+    if (!window.confirm('මෙම චිත්‍රපටය Database එකෙන් ඉවත් කිරීමට අවශ්‍යද?')) return;
     try {
-      await rtdbRemove(`movies/${mId}`);
+      await rtdbRemove(`movies/${movieId}`);
       if (onRefreshMovies) onRefreshMovies();
     } catch (e) {
-      alert('Delete failed');
+      alert('Error deleting movie: ' + e.message);
     }
-  };
-
-  const handleMarkRequestDone = async (reqKey) => {
-    try {
-      await rtdbSet(`requests/${reqKey}/status`, 'done');
-      loadRequestsData();
-    } catch (e) { }
-  };
-
-  const handleDeleteRequest = async (reqKey) => {
-    try {
-      await rtdbRemove(`requests/${reqKey}`);
-      loadRequestsData();
-    } catch (e) { }
   };
 
   const handleBroadcastNotif = async (e) => {
@@ -238,10 +265,10 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+        <div className="flex items-center gap-2 border-b border-white/10 pb-2 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('movies')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'movies' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
             }`}
           >
@@ -249,8 +276,17 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
           </button>
 
           <button
+            onClick={() => setActiveTab('bot')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+              activeTab === 'bot' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
+            }`}
+          >
+            <MessageCircle className="w-4 h-4" /> WhatsApp Bot Settings
+          </button>
+
+          <button
             onClick={() => setActiveTab('requests')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'requests' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
             }`}
           >
@@ -259,7 +295,7 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
           <button
             onClick={() => setActiveTab('notifs')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'notifs' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
             }`}
           >
@@ -268,13 +304,54 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'analytics' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
             }`}
           >
             <BarChart2 className="w-4 h-4" /> Analytics
           </button>
         </div>
+
+        {/* Tab: WhatsApp Bot Phone Number Settings */}
+        {activeTab === 'bot' && (
+          <div className="bg-neutral-900 border border-emerald-500/30 rounded-2xl p-6 space-y-4 max-w-xl">
+            <div className="flex items-center space-x-3 text-emerald-400">
+              <MessageCircle className="w-6 h-6" />
+              <h3 className="font-bold text-white text-base">WhatsApp Bot Phone Number Settings</h3>
+            </div>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Website එකේ "WhatsApp Bot" button එක ඔබන විට පරිශීලකයින්ගේ මැසේජ් එක කෙලින්ම යන WhatsApp දුරකථන අංකය මෙතැනට ඇතුළත් කරන්න.
+            </p>
+
+            {waSavedSuccess && (
+              <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400" /> WhatsApp Bot අංකය සාර්ථකව Save විය!
+              </div>
+            )}
+
+            <form onSubmit={handleSaveWaNumber} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-300 uppercase">WhatsApp Bot Number (With Country Code)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="+94771234567"
+                  value={waNumber}
+                  onChange={(e) => setWaNumber(e.target.value)}
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>SAVE WHATSAPP BOT NUMBER</span>
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Tab 1: Movie Form & Catalog */}
         {activeTab === 'movies' && (
@@ -298,189 +375,212 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
                 </div>
               )}
 
-              <form onSubmit={handleSaveMovieForm} className="space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-gray-400 mb-1">Movie Title</label>
+              <form onSubmit={handleSaveMovieForm} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Movie Title *</label>
                     <input
                       type="text"
+                      required
+                      placeholder="e.g. Dhamaka"
                       value={movieForm.title}
                       onChange={(e) => setMovieForm({ ...movieForm, title: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
-                      required
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-gray-400 mb-1">Year</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Year</label>
                     <input
                       type="text"
+                      placeholder="2026"
                       value={movieForm.year}
                       onChange={(e) => setMovieForm({ ...movieForm, year: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-gray-400 mb-1">Type</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Type</label>
                     <select
                       value={movieForm.type}
                       onChange={(e) => setMovieForm({ ...movieForm, type: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     >
                       <option value="movie">Movie</option>
                       <option value="tv">TV Series</option>
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-gray-400 mb-1">Quality Badge</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Quality Badge</label>
                     <input
                       type="text"
+                      placeholder="WEB-DL / 1080P"
                       value={movieForm.quality}
                       onChange={(e) => setMovieForm({ ...movieForm, quality: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-gray-400 mb-1">IMDb Rating</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">IMDb Rating</label>
                     <input
                       type="text"
+                      placeholder="7.5"
                       value={movieForm.rating}
                       onChange={(e) => setMovieForm({ ...movieForm, rating: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-gray-400 mb-1">Genres (Comma separated)</label>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase">Genres (Comma separated)</label>
                   <input
                     type="text"
+                    placeholder="Action, Thriller, Drama"
                     value={movieForm.genre}
                     onChange={(e) => setMovieForm({ ...movieForm, genre: e.target.value })}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-gray-400 mb-1">Poster URL</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Poster URL</label>
                     <input
                       type="text"
+                      placeholder="https://image.tmdb.org/t/p/w342/..."
                       value={movieForm.poster}
                       onChange={(e) => setMovieForm({ ...movieForm, poster: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-gray-400 mb-1">Backdrop URL</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Backdrop URL</label>
                     <input
                       type="text"
+                      placeholder="https://image.tmdb.org/t/p/w780/..."
                       value={movieForm.backdrop}
                       onChange={(e) => setMovieForm({ ...movieForm, backdrop: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-gray-400 mb-1">Pixeldrain 720p URL</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Pixeldrain 720p URL</label>
                     <input
                       type="text"
+                      placeholder="https://pixeldrain.com/u/..."
                       value={movieForm.pd720}
                       onChange={(e) => setMovieForm({ ...movieForm, pd720: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-gray-400 mb-1">Pixeldrain 1080p URL</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Pixeldrain 1080p URL</label>
                     <input
                       type="text"
+                      placeholder="https://pixeldrain.com/u/..."
                       value={movieForm.pd1080}
                       onChange={(e) => setMovieForm({ ...movieForm, pd1080: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-gray-400 mb-1">Stream Player URL (Server 1)</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Stream Player URL (Server 1)</label>
                     <input
                       type="text"
+                      placeholder="https://..."
                       value={movieForm.streamUrl}
                       onChange={(e) => setMovieForm({ ...movieForm, streamUrl: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-gray-400 mb-1">Sinhala Subtitle (.SRT) URL</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Sinhala Subtitle (.SRT) URL</label>
                     <input
                       type="text"
+                      placeholder="https://.../sub.srt"
                       value={movieForm.subUrl}
                       onChange={(e) => setMovieForm({ ...movieForm, subUrl: e.target.value })}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-gray-400 mb-1">Overview Description</label>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase">Overview Description</label>
                   <textarea
-                    rows="3"
+                    rows={3}
+                    placeholder="Enter movie plot synopsis..."
                     value={movieForm.description}
                     onChange={(e) => setMovieForm({ ...movieForm, description: e.target.value })}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-red-600"
+                    className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-red-600"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{editingMovieId ? 'UPDATE MOVIE' : 'SAVE MOVIE TO DATABASE'}</span>
+                  <span>{editingMovieId ? 'Update Movie in Database' : 'Save Movie to Database'}</span>
                 </button>
               </form>
             </div>
 
             {/* Catalog List Column */}
-            <div className="bg-neutral-900 border border-white/10 rounded-2xl p-4 flex flex-col h-[650px]">
-              <div className="relative mb-3">
+            <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4 flex flex-col h-[680px]">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-white text-sm">Catalog List</h3>
+                <span className="text-xs text-gray-400">{filteredMovies.length} items</span>
+              </div>
+
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="text"
+                  placeholder="Catalog search..."
                   value={adminSearch}
                   onChange={(e) => setAdminSearch(e.target.value)}
-                  placeholder="Catalog search..."
-                  className="w-full bg-black/50 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
                 />
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-2 pr-1 divide-y divide-white/5">
-                {filteredMovies.map(m => (
-                  <div key={m.id} className="pt-2 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <img src={m.poster} alt="" className="w-8 h-12 object-cover rounded shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-white truncate">{m.title}</div>
-                        <div className="text-[10px] text-gray-400">{m.year}</div>
-                      </div>
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                {filteredMovies.map((m) => (
+                  <div key={m.id} className="p-3 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between hover:border-white/20 transition">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <h4 className="text-xs font-bold text-white truncate">{m.title}</h4>
+                      <span className="text-[10px] text-gray-400">{m.year}</span>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => handleEditMovieClick(m)} className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleEditMovieClick(m)}
+                        className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition"
+                        title="Edit"
+                      >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleDeleteMovie(m.id)} className="p-1.5 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded-lg">
+
+                      <button
+                        onClick={() => handleDeleteMovie(m.id)}
+                        className="p-1.5 bg-red-600/20 hover:bg-red-600 rounded-lg text-red-400 hover:text-white transition"
+                        title="Delete"
+                      >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -491,56 +591,47 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
           </div>
         )}
 
-        {/* Tab 2: Requests Management */}
+        {/* Tab 2: Requests */}
         {activeTab === 'requests' && (
           <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">User Movie Requests</h3>
+            <h3 className="font-bold text-white text-sm">User Movie Requests ({requestsList.length})</h3>
 
-            <div className="space-y-3">
-              {requestsList.map(r => (
-                <div key={r.key} className="p-4 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-bold text-white">{r.movie}</h4>
-                    <p className="text-xs text-gray-400">By: {r.user} ({r.email}) • {r.votes || 1} Votes</p>
+            {requestsList.length === 0 ? (
+              <p className="text-xs text-gray-500">No requests found yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {requestsList.map((req) => (
+                  <div key={req.key} className="p-4 bg-black/40 border border-white/5 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-white">{req.title}</h4>
+                      <span className="text-[10px] text-emerald-400 font-bold">👍 {req.votes || 1} Votes</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400">Type: {req.mediaType || 'movie'} • Requested: {new Date(req.time || Date.now()).toLocaleDateString()}</p>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    {r.status !== 'done' ? (
-                      <button onClick={() => handleMarkRequestDone(r.key)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">
-                        ✓ Mark Added
-                      </button>
-                    ) : (
-                      <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded">
-                        Added
-                      </span>
-                    )}
-                    <button onClick={() => handleDeleteRequest(r.key)} className="p-1.5 bg-red-600/20 text-red-400 rounded-lg">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Tab 3: Notification Broadcast */}
+        {/* Tab 3: Broadcast Notifications */}
         {activeTab === 'notifs' && (
           <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4 max-w-xl">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Broadcast Activity Feed Notice</h3>
-
+            <h3 className="font-bold text-white text-sm">Broadcast Notification to All Users</h3>
             <form onSubmit={handleBroadcastNotif} className="space-y-3">
               <textarea
-                rows="3"
+                rows={3}
+                required
+                placeholder="Enter notification message..."
                 value={notifMsg}
                 onChange={(e) => setNotifMsg(e.target.value)}
-                placeholder="සියලුම පරිශීලකයින්ට පෙන්වීමට අවශ්‍ය නිවේදනය..."
                 className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-red-600"
-                required
               />
-
-              <button type="submit" className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg">
-                Broadcast Notice
+              <button
+                type="submit"
+                className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg transition"
+              >
+                Send Broadcast Notification
               </button>
             </form>
           </div>
@@ -548,10 +639,21 @@ export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout 
 
         {/* Tab 4: Analytics */}
         {activeTab === 'analytics' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-6 bg-neutral-900 border border-white/10 rounded-2xl text-center space-y-2">
-              <div className="text-3xl font-black text-red-500">{analytics.totalVisitors || 0}</div>
-              <div className="text-xs font-bold text-gray-400 uppercase">Total Site Visitors</div>
+          <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4">
+            <h3 className="font-bold text-white text-sm">Website Visitor Analytics</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 bg-black/40 border border-white/5 rounded-xl text-center space-y-1">
+                <span className="text-2xl font-black text-red-500 font-mono">{analytics.totalVisitors || 0}</span>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Total Visitors</p>
+              </div>
+              <div className="p-4 bg-black/40 border border-white/5 rounded-xl text-center space-y-1">
+                <span className="text-2xl font-black text-emerald-400 font-mono">{Object.keys(analytics.downloadsDaily || {}).length}</span>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Daily Downloads</p>
+              </div>
+              <div className="p-4 bg-black/40 border border-white/5 rounded-xl text-center space-y-1">
+                <span className="text-2xl font-black text-amber-400 font-mono">{movies.length}</span>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Total Movies</p>
+              </div>
             </div>
           </div>
         )}
