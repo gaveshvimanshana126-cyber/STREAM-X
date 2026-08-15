@@ -13,8 +13,12 @@ const {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore
+  makeCacheableSignalKeyStore,
+  initAuthCreds,
+  BufferJSON,
+  proto
 } = require('@whiskeysockets/baileys');
+const mongoose = require('mongoose');
 const pino = require('pino');
 const QRCode = require('qrcode');
 const fs = require('fs');
@@ -36,6 +40,90 @@ let latestQRImage = null;
 let dbStatus = 'Firebase Realtime DB (Live Sync)';
 
 const FIREBASE_DB_URL = 'https://sutable-99848-default-rtdb.firebaseio.com';
+
+// Mongoose Schema for Baileys WhatsApp Session Persistence in MongoDB Atlas (Heroku Safe)
+const baileysAuthSchema = new mongoose.Schema({
+  _id: { type: String, required: true },
+  data: { type: Object, required: true }
+}, { timestamps: true, collection: 'baileys_auth' });
+
+const BaileysAuth = mongoose.models.BaileysAuth || mongoose.model('BaileysAuth', baileysAuthSchema);
+
+async function useMongoDBAuthState() {
+  const readData = async (file) => {
+    try {
+      const doc = await BaileysAuth.findById(file).lean();
+      if (doc && doc.data) {
+        return JSON.parse(JSON.stringify(doc.data), BufferJSON.reviver);
+      }
+    } catch (e) {
+      console.error(`MongoDB read note [${file}]:`, e.message);
+    }
+    return null;
+  };
+
+  const writeData = async (file, data) => {
+    try {
+      const serialized = JSON.parse(JSON.stringify(data, BufferJSON.replacer));
+      await BaileysAuth.findByIdAndUpdate(
+        file,
+        { _id: file, data: serialized },
+        { upsert: true, new: true }
+      );
+    } catch (e) {
+      console.error(`MongoDB write note [${file}]:`, e.message);
+    }
+  };
+
+  const removeData = async (file) => {
+    try {
+      await BaileysAuth.findByIdAndDelete(file);
+    } catch (e) {
+      console.error(`MongoDB remove note [${file}]:`, e.message);
+    }
+  };
+
+  const creds = (await readData('creds')) || initAuthCreds();
+
+  return {
+    state: {
+      creds,
+      keys: {
+        get: async (type, ids) => {
+          const data = {};
+          await Promise.all(
+            ids.map(async (id) => {
+              let value = await readData(`${type}-${id}`);
+              if (type === 'app-state-sync-key' && value) {
+                value = proto.Message.AppStateSyncKeyData.fromObject(value);
+              }
+              data[id] = value;
+            })
+          );
+          return data;
+        },
+        set: async (data) => {
+          const tasks = [];
+          for (const category in data) {
+            for (const id in data[category]) {
+              const value = data[category][id];
+              const file = `${category}-${id}`;
+              if (value) {
+                tasks.push(writeData(file, value));
+              } else {
+                tasks.push(removeData(file));
+              }
+            }
+          }
+          await Promise.all(tasks);
+        }
+      }
+    },
+    saveCreds: async () => {
+      await writeData('creds', creds);
+    }
+  };
+}
 
 // Helper function to load movies from Firebase RTDB with fallbacks
 async function loadMovies() {
@@ -70,12 +158,35 @@ async function loadMovies() {
 
 async function startBot() {
   const logger = pino({ level: 'silent' });
-  const authFolder = path.join(__dirname, 'auth_info_baileys');
-  const { state, saveCreds } = await useMultiFileAuthState(authFolder);
   const { version } = await fetchLatestBaileysVersion();
 
+  let authState;
+  const DEFAULT_MONGO_URI = 'mongodb+srv://ccransika_db_user:Pc1u7xrzGEn4LJvw@cluster0.sntej6n.mongodb.net/cineflix_bot?retryWrites=true&w=majority';
+  const mongoUri = process.env.MONGODB_URI || config.mongodbUri || DEFAULT_MONGO_URI;
+
+  if (mongoUri && mongoUri.trim() !== '' && !mongoUri.includes('YOUR_MONGODB_ATLAS_URI')) {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
+        console.log('🍃 Connected to MongoDB Atlas for WhatsApp Session Persistence!');
+      }
+      authState = await useMongoDBAuthState();
+      dbStatus = 'MongoDB Atlas Session Storage + Firebase RTDB Movies';
+    } catch (mongoErr) {
+      console.warn('⚠️ MongoDB connection failed, falling back to local files:', mongoErr.message);
+      const authFolder = path.join(__dirname, 'auth_info_baileys');
+      authState = await useMultiFileAuthState(authFolder);
+    }
+  } else {
+    console.log('📁 MONGODB_URI not provided. Using local auth_info_baileys folder for session storage.');
+    const authFolder = path.join(__dirname, 'auth_info_baileys');
+    authState = await useMultiFileAuthState(authFolder);
+  }
+
+  const { state, saveCreds } = authState;
+
   console.log(`\n==================================================`);
-  console.log(` 🎬 CINEFLIX WHATSAPP BOT (Live Firebase RTDB) `);
+  console.log(` 🎬 CINEFLIX WHATSAPP BOT (Live Firebase RTDB & MongoDB Auth) `);
   console.log(` Baileys Version: ${version.join('.')}`);
   console.log(` Database Mode: ${dbStatus}`);
   console.log(`==================================================\n`);

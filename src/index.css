@@ -325,6 +325,53 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.55);
 }
 
+/* Ambient Background Glow Pulsing Animation for Movie Details */
+@keyframes ambientGlowPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.08) translateY(-10px);
+  }
+}
+
+.ambient-bg-glow {
+  position: absolute;
+  top: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120%;
+  max-width: 900px;
+  height: 650px;
+  background: radial-gradient(circle at 50% 30%, rgba(232, 38, 42, 0.32) 0%, rgba(160, 20, 25, 0.15) 50%, transparent 75%);
+  filter: blur(65px);
+  pointer-events: none;
+  animation: ambientGlowPulse 7s ease-in-out infinite;
+  z-index: 0;
+}
+
+/* Poster Outer Glow Effect */
+@keyframes posterGlowBreathing {
+  0%, 100% {
+    box-shadow: 0 10px 40px -10px rgba(232, 38, 42, 0.5), 0 0 25px rgba(232, 38, 42, 0.25);
+  }
+  50% {
+    box-shadow: 0 15px 55px -5px rgba(232, 38, 42, 0.8), 0 0 40px rgba(232, 38, 42, 0.45);
+  }
+}
+
+.poster-glow {
+  animation: posterGlowBreathing 5s ease-in-out infinite;
+}
+
+/* Hero Player Card Border Glow */
+.hero-player-glow {
+  box-shadow: 0 0 35px rgba(232, 38, 42, 0.35), inset 0 0 20px rgba(232, 38, 42, 0.15);
+  border: 1.5px solid rgba(232, 38, 42, 0.45);
+}
+
 /* Continuous Auto-Scroll Track for Movie Stills & Cast */
 @keyframes autoScrollTrack {
   0% { transform: translateX(0); }
