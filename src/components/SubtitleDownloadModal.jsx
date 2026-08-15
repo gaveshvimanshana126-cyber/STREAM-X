@@ -4,10 +4,23 @@ import { ArrowLeft, Download, Check, Home, ChevronDown, Subtitles } from 'lucide
 export default function SubtitleDownloadModal({ movie, onClose }) {
   if (!movie) return null;
 
+  const slug = movie.title ? movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : movie.id;
+
   // Step state: 'confirm' -> 'countdown' -> 'download'
   const [step, setStep] = useState('confirm');
   const [countdown, setCountdown] = useState(3);
-  const [showSubGuide, setShowSubGuide] = useState(false);
+  const [showSubGuide, setShowSubGuide] = useState(true);
+
+  // Sync Clean Address Bar URL for each step matching index (45).html routing
+  useEffect(() => {
+    if (step === 'confirm') {
+      window.history.pushState({ step: 'loaddl' }, '', `/loaddl/${slug}`);
+    } else if (step === 'countdown') {
+      window.history.pushState({ step: 'dldetils' }, '', `/dldetils/${slug}`);
+    } else if (step === 'download') {
+      window.history.pushState({ step: 'dlmovie' }, '', `/dlmovie/${slug}`);
+    }
+  }, [step, slug]);
 
   useEffect(() => {
     let timer;
@@ -27,7 +40,7 @@ export default function SubtitleDownloadModal({ movie, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0A0A0A] overflow-y-auto w-full min-h-screen text-gray-100 font-['Nunito',sans-serif] animate-fadeIn">
+    <div className="fixed inset-0 z-50 bg-[#0A0A0A] overflow-y-auto w-full min-h-screen text-gray-100 font-['Nunito',sans-serif] animate-fadeIn select-none">
       
       {/* STEP 1: Confirm Page matching index (45).html */}
       {step === 'confirm' && (
@@ -60,7 +73,7 @@ export default function SubtitleDownloadModal({ movie, onClose }) {
 
             <button
               onClick={onClose}
-              className="w-full py-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white font-bold text-xs flex items-center justify-center space-x-2 border border-gray-800 transition-all"
+              className="w-full py-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white font-bold text-xs flex items-center justify-center space-x-2 border border-gray-800 transition-all cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>BACK TO MOVIE</span>
@@ -101,7 +114,7 @@ export default function SubtitleDownloadModal({ movie, onClose }) {
           <div className="flex items-center justify-between border-b border-gray-800 pb-4">
             <button
               onClick={onClose}
-              className="flex items-center space-x-2 px-4 py-2 rounded-full bg-gray-900 hover:bg-red-600 text-white text-xs font-bold transition-all border border-gray-800"
+              className="flex items-center space-x-2 px-4 py-2 rounded-full bg-gray-900 hover:bg-red-600 text-white text-xs font-bold transition-all border border-gray-800 cursor-pointer"
             >
               <Home className="w-4 h-4" />
               <span>HOME</span>
@@ -154,7 +167,7 @@ export default function SubtitleDownloadModal({ movie, onClose }) {
           <div className="rounded-2xl bg-[#111111] border border-gray-800 overflow-hidden">
             <button
               onClick={() => setShowSubGuide(!showSubGuide)}
-              className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 transition-all"
+              className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 transition-all cursor-pointer"
             >
               <div className="flex items-center space-x-3">
                 <Subtitles className="w-4 h-4 text-red-500" />
