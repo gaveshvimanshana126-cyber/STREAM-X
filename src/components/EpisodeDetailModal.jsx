@@ -41,7 +41,8 @@ export default function EpisodeDetailModal({ isOpen, onClose, movie, episode, se
   const prevEp = curIdx > 0 ? allEpisodes[curIdx - 1] : null;
   const nextEp = curIdx >= 0 && curIdx < allEpisodes.length - 1 ? allEpisodes[curIdx + 1] : null;
 
-  const currentStreamUrl = activeServer === 'srv1' ? episode.srv1 || episode.url : activeServer === 'srv2' ? episode.srv2 : episode.srv3;
+  const rawStreamUrl = activeServer === 'srv1' ? episode.srv1 || episode.url : activeServer === 'srv2' ? episode.srv2 : episode.srv3;
+  const currentStreamUrl = (rawStreamUrl || '').replace('/api/nexa/download/', '/api/nexa/stream/');
 
   return (
     <div className="fixed inset-0 z-[90] bg-neutral-950 text-white overflow-y-auto animate-fade-in p-4 sm:p-8">

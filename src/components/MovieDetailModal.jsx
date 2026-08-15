@@ -105,6 +105,11 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
   ].filter(Boolean);
 
   // Generate Default Seasons & Episodes for TV Series if missing
+  const toStreamUrl = (url) => {
+    if (!url || typeof url !== 'string') return '#';
+    return url.replace('/api/nexa/download/', '/api/nexa/stream/');
+  };
+
   const seasonsList = (movie.seasons && movie.seasons.length > 0) ? movie.seasons : [
     {
       season: 1,
@@ -115,8 +120,8 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
         airDate: movie.year || '2023',
         runtime: '24m',
         description: `${movie.title} Season 1 Episode ${i + 1} with Sinhala Subtitles.`,
-        srv1: movie.streamUrl || movie.downloads?.[0]?.srv1 || '#',
-        srv2: movie.streamUrl2 || movie.downloads?.[0]?.srv2 || '#',
+        srv1: toStreamUrl(movie.streamUrl || movie.downloads?.[0]?.srv1 || '#'),
+        srv2: toStreamUrl(movie.streamUrl2 || movie.downloads?.[0]?.srv2 || '#'),
         pd720: movie.downloads?.[0]?.pd720 || '#',
         pd1080: movie.downloads?.[0]?.pd1080 || '#'
       }))
@@ -125,7 +130,8 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
 
   const currentSeasonEpisodes = seasonsList[selectedSeasonIdx]?.episodes || [];
 
-  const stream1 = movie.streamUrl || movie.downloads?.[0]?.srv1 || movie.downloads?.[0]?.srv2;
+  const rawStream1 = movie.streamUrl || movie.downloads?.[0]?.srv1 || movie.downloads?.[0]?.srv2 || movie.downloads?.[0]?.url;
+  const stream1 = toStreamUrl(rawStream1);
   const dl720 = movie.downloads?.find(d => d.res === '720p') || movie.downloads?.[0];
   const dl1080 = movie.downloads?.find(d => d.res === '1080p') || movie.downloads?.[1] || dl720;
 

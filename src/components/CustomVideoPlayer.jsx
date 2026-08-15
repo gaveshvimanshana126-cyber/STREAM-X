@@ -42,12 +42,14 @@ export default function CustomVideoPlayer({ streamUrl, posterUrl, movieTitle, su
     };
   }, [isPlaying, isLocked]);
 
-  // Load video source and auto subtitle
+  // Load video source and auto subtitle (convert download endpoint to stream endpoint)
+  const effectiveStreamUrl = (streamUrl || '').replace('/api/nexa/download/', '/api/nexa/stream/');
+
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !streamUrl) return;
+    if (!video || !effectiveStreamUrl) return;
 
-    video.src = streamUrl;
+    video.src = effectiveStreamUrl;
     video.load();
     setShowPoster(true);
     setIsPlaying(false);
@@ -56,7 +58,7 @@ export default function CustomVideoPlayer({ streamUrl, posterUrl, movieTitle, su
     if (subtitleUrl) {
       fetchSubtitle(subtitleUrl);
     }
-  }, [streamUrl, subtitleUrl]);
+  }, [effectiveStreamUrl, subtitleUrl]);
 
   const fetchSubtitle = async (url) => {
     try {
@@ -187,8 +189,8 @@ export default function CustomVideoPlayer({ streamUrl, posterUrl, movieTitle, su
   };
 
   const playInVlc = () => {
-    if (!streamUrl) return;
-    const vlcUrl = 'vlc://' + streamUrl;
+    if (!effectiveStreamUrl) return;
+    const vlcUrl = 'vlc://' + effectiveStreamUrl;
     window.location.href = vlcUrl;
     if (onToast) onToast('🎬 Opening in VLC app...');
   };
