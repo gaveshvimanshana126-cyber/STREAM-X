@@ -1,15 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Star, Clock, Calendar, Download, MessageCircle, Play, Film, Globe, User, Subtitles, ExternalLink, Eye, MessageSquare, Send, Share2, Bookmark, Check } from 'lucide-react';
+import { fetchMovieTmdbDetails } from '../services/tmdb.js';
 
 export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onOpenSubDl }) {
   if (!movie) return null;
 
   const [activeStream, setActiveStream] = useState(false);
+  const [tmdbData, setTmdbData] = useState(null);
   const [comments, setComments] = useState(movie.commentsList || [
     { id: 1, name: 'Kasun Perera', text: 'Maru film eka! Sinhala sub ekata sthuthiy!', date: '2 hours ago', adminReply: 'ස්තූතියි! Enjoy the movie!' }
   ]);
   const [newComment, setNewComment] = useState({ name: '', email: '', text: '' });
   const [commentSubmitted, setCommentSubmitted] = useState(false);
+
+  // Fetch real TMDb cast, profile images, and stills on open
+  useEffect(() => {
+    let isMounted = true;
+    fetchMovieTmdbDetails(movie).then((data) => {
+      if (isMounted && data) {
+        setTmdbData(data);
+      }
+    });
+    return () => { isMounted = false; };
+  }, [movie]);
 
   const handleAddComment = (e) => {
     e.preventDefault();
@@ -28,18 +41,19 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
     setTimeout(() => setCommentSubmitted(false), 3000);
   };
 
-  const castArray = movie.castList || (movie.cast ? movie.cast.split(',').map(c => ({ name: c.trim(), role: 'Actor' })) : [
-    { name: movie.cast || 'Ravi Teja', role: 'Main Lead' },
-    { name: 'Sreeleela', role: 'Co-Star' },
-    { name: 'Jayaram', role: 'Antagonist' }
-  ]);
+  // Real TMDb Cast list with actor profile photos & character roles
+  const castArray = tmdbData?.castList || movie.castList || (movie.cast ? movie.cast.split(',').map(c => ({
+    name: c.trim(),
+    role: 'Actor',
+    avatar: null,
+    initials: c.trim().substring(0, 2).toUpperCase()
+  })) : []);
 
-  const stillsArray = movie.stills || [
+  // Real TMDb Movie Stills screenshots
+  const stillsArray = tmdbData?.stillsList || movie.stills || movie.screenshots || [
     movie.backdrop,
-    movie.poster,
-    'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800',
-    'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800'
-  ];
+    movie.poster
+  ].filter(Boolean);
 
   const stream1 = movie.streamUrl || movie.downloads?.[0]?.srv2;
   const dl720 = movie.downloads?.find(d => d.res === '720p') || movie.downloads?.[0];
@@ -73,7 +87,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
         <div className="relative flex justify-center py-4">
           <div className="relative w-44 sm:w-52 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 group">
             <img
-              src={movie.poster || movie.backdrop}
+              src={tmdbData?.poster || movie.poster || movie.backdrop}
               alt={movie.title}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -116,17 +130,17 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="p-3.5 rounded-2xl bg-[#111111] border border-gray-800/80 space-y-1">
             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">RELEASE DATE</span>
-            <span className="text-xs font-bold text-white block truncate">{movie.releaseDate || 'December 23, 2022'}</span>
+            <span className="text-xs font-bold text-white block truncate">{tmdbData?.releaseDate || movie.releaseDate || 'December 23, 2022'}</span>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-[#111111] border border-gray-800/80 space-y-1">
             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">DIRECTOR</span>
-            <span className="text-xs font-bold text-white block truncate">{movie.director || 'Trinadha Rao Nakkina'}</span>
+            <span className="text-xs font-bold text-white block truncate">{tmdbData?.director || movie.director || 'Trinadha Rao Nakkina'}</span>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-[#111111] border border-gray-800/80 space-y-1">
             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">STARS</span>
-            <span className="text-xs font-bold text-white block truncate">{movie.stars || movie.cast || 'Ravi Teja, Sreeleela, Jayaram'}</span>
+            <span className="text-xs font-bold text-white block truncate">{tmdbData?.stars || movie.stars || movie.cast || 'Ravi Teja, Sreeleela, Jayaram'}</span>
           </div>
         </div>
 
@@ -158,49 +172,61 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </div>
         </div>
 
-        {/* 8. TOP CAST Section matching screenshot */}
-        <div className="space-y-3 pt-2">
-          <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
-            <User className="w-4 h-4" />
-            <span>TOP CAST</span>
-          </h3>
+        {/* 8. TOP CAST Section matching screenshot (Real TMDb Profile Photos) */}
+        {castArray.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
+              <User className="w-4 h-4" />
+              <span>TOP CAST</span>
+            </h3>
 
-          <div className="flex space-x-4 overflow-x-auto no-scrollbar py-2">
-            {castArray.map((actor, idx) => (
-              <div key={idx} className="flex flex-col items-center text-center space-y-1.5 flex-shrink-0 w-20">
-                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gray-800 bg-gray-900 shadow">
-                  <img
-                    src={actor.avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&fit=crop&crop=faces`}
-                    alt={actor.name}
-                    className="w-full h-full object-cover"
-                  />
+            <div className="flex space-x-4 overflow-x-auto no-scrollbar py-2">
+              {castArray.map((actor, idx) => (
+                <div key={idx} className="flex flex-col items-center text-center space-y-1.5 flex-shrink-0 w-20">
+                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gray-800 bg-gray-900 shadow flex items-center justify-center">
+                    {actor.avatar ? (
+                      <img
+                        src={actor.avatar}
+                        alt={actor.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs font-bold text-red-500">{actor.initials || '??'}</span>
+                    )}
+                  </div>
+                  <span className="text-[11px] font-bold text-white truncate w-full">{actor.name}</span>
+                  <span className="text-[9px] text-gray-400 truncate w-full">{actor.role || 'Actor'}</span>
                 </div>
-                <span className="text-[11px] font-bold text-white truncate w-full">{actor.name}</span>
-                <span className="text-[9px] text-gray-500 truncate w-full">{actor.role || 'Cast'}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 9. MOVIE STILLS Marquee Section matching screenshot */}
-        <div className="space-y-3 pt-2">
-          <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
-            <Film className="w-4 h-4" />
-            <span>MOVIE STILLS</span>
-          </h3>
+        {stillsArray.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-black text-red-500 uppercase tracking-widest font-['Bebas_Neue'] text-sm flex items-center gap-2">
+              <Film className="w-4 h-4" />
+              <span>MOVIE STILLS</span>
+            </h3>
 
-          <div className="flex space-x-3 overflow-x-auto no-scrollbar py-2">
-            {stillsArray.map((imgUrl, idx) => (
-              <div key={idx} className="w-48 sm:w-60 h-28 sm:h-36 rounded-xl overflow-hidden border border-gray-800 flex-shrink-0 shadow-lg">
-                <img
-                  src={imgUrl}
-                  alt={`Movie Still ${idx}`}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-            ))}
+            <div className="flex space-x-3 overflow-x-auto no-scrollbar py-2">
+              {stillsArray.map((imgUrl, idx) => (
+                <div key={idx} className="w-48 sm:w-60 h-28 sm:h-36 rounded-xl overflow-hidden border border-gray-800 flex-shrink-0 shadow-lg bg-gray-900">
+                  <img
+                    src={imgUrl}
+                    alt={`Movie Still ${idx}`}
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 10. CUSTOM STREAM PLAYER matching screenshot */}
         <div className="space-y-3 pt-2">
@@ -208,7 +234,7 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
             {!activeStream ? (
               <div className="relative w-full h-full">
                 <img
-                  src={movie.backdrop || movie.poster}
+                  src={tmdbData?.backdrop || movie.backdrop || movie.poster}
                   alt={movie.title}
                   className="w-full h-full object-cover"
                 />

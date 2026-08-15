@@ -1,155 +1,151 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Copy, Check, Globe, Download, AlertCircle } from 'lucide-react';
+import { X, Copy, ExternalLink, AlertTriangle, Check, ArrowRight, Download } from 'lucide-react';
+import { trackDownload } from '../services/firebase';
 
-export default function PixeldrainDownloadModal({ downloadUrl, filename = 'Movie.mp4', onClose }) {
+export default function PixeldrainDownloadModal({ isOpen, onClose, downloadUrl, movieId, onToast }) {
   const [countdown, setCountdown] = useState(3);
-  const [status, setStatus] = useState('Preparing your download...');
-  const [showFailNotice, setShowFailNotice] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    let timer;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(c => c - 1), 1000);
-    } else {
-      setStatus('Redirecting to Pixeldrain...');
-      setShowFailNotice(true);
-    }
-    return () => clearTimeout(timer);
-  }, [countdown]);
+    if (!isOpen) return;
+
+    setCountdown(3);
+    setIsFinished(false);
+    setCopied(false);
+
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setIsFinished(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isOpen]);
 
   const handleCopyLink = () => {
-    if (downloadUrl) {
-      navigator.clipboard.writeText(downloadUrl);
+    if (!downloadUrl) return;
+
+    if (movieId) trackDownload(movieId);
+
+    navigator.clipboard.writeText(downloadUrl).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
+      if (onToast) onToast('📋 Link copied! Chrome එකේ Paste කරලා Download කරන්න.');
+      setTimeout(() => setCopied(false), 3000);
+    }).catch(() => {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = downloadUrl;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      if (onToast) onToast('📋 Link copied! Chrome එකේ Paste කරලා Download කරන්න.');
+      setTimeout(() => setCopied(false), 3000);
+    });
   };
 
+  const handleOpenDirectly = () => {
+    if (!downloadUrl) return;
+    if (movieId) trackDownload(movieId);
+    window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    onClose();
+  };
+
+  if (!isOpen || !downloadUrl) return null;
+
+  const filename = decodeURIComponent(downloadUrl.split('/').pop().split('?')[0]) || 'Download File';
+
   return (
-    <div className="fixed inset-0 z-50 bg-[#070a0f] overflow-y-auto w-full min-h-screen text-gray-100 font-['Nunito',sans-serif] flex flex-col items-center justify-center p-6 animate-fadeIn">
-      
-      {/* Top Back Button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 left-4 flex items-center space-x-1.5 text-xs font-bold text-gray-400 hover:text-white transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Back</span>
-      </button>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+      <div className="relative w-full max-w-lg bg-neutral-900 border border-white/10 rounded-2xl p-6 shadow-2xl overflow-hidden text-white space-y-5">
+        {/* Close Button */}
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white p-1 rounded-full bg-white/5 hover:bg-white/10 transition">
+          <X className="w-5 h-5" />
+        </button>
 
-      <div className="w-full max-w-md space-y-6 flex flex-col items-center text-center py-8">
-        
-        {/* Pixeldrain Logo Badge */}
-        <div className="w-16 h-16 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shadow-xl shadow-indigo-600/20">
-          <Globe className="w-8 h-8 text-indigo-400" />
+        {/* Title */}
+        <div className="text-center space-y-1">
+          <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">PIXELDRAIN SECURE DOWNLOAD</span>
+          <h3 className="text-base font-bold text-white line-clamp-1">{filename}</h3>
         </div>
 
-        <div className="space-y-1 w-full">
-          <span className="text-[10px] font-extrabold text-indigo-400 tracking-[3px] uppercase block">
-            PIXELDRAIN DIRECT MIRROR
-          </span>
-          <h3 className="text-sm font-bold text-white truncate max-w-xs mx-auto">
-            {filename}
-          </h3>
+        {/* 3s Animated Countdown Ring */}
+        <div className="flex flex-col items-center justify-center py-4">
+          <div className="relative w-20 h-20 flex items-center justify-center">
+            <svg className="w-full h-full transform -rotate-90">
+              <circle cx="40" cy="40" r="34" stroke="currentColor" strokeWidth="6" className="text-white/10" fill="transparent" />
+              <circle
+                cx="40"
+                cy="40"
+                r="34"
+                stroke="currentColor"
+                strokeWidth="6"
+                className="text-red-600 transition-all duration-1000"
+                fill="transparent"
+                strokeDasharray={213.6}
+                strokeDashoffset={213.6 * (countdown / 3)}
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="absolute text-2xl font-black">{isFinished ? '!' : countdown}</span>
+          </div>
+
+          <p className="text-xs text-gray-300 font-medium text-center mt-3 max-w-xs">
+            {isFinished ? 'Link copy කරලා Chrome එකෙන් download කරගන්න 👇' : 'Preparing download link...'}
+          </p>
         </div>
 
-        {/* Countdown Ring */}
-        <div className="relative w-20 h-20 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full border-4 border-red-600/20 border-t-red-600 animate-spin"></div>
-          <span className="text-2xl font-black text-white font-['Bebas_Neue']">
-            {countdown}
-          </span>
-        </div>
-
-        <p className="text-xs font-semibold text-gray-400">
-          {status}
-        </p>
-
-        {/* Fail Notice Box matching index (45).html */}
-        {showFailNotice && (
-          <div className="w-full p-4 rounded-2xl bg-red-950/40 border border-red-500/40 text-left space-y-2 animate-fadeIn">
-            <div className="flex items-center space-x-2 text-red-500 font-bold text-xs">
-              <AlertCircle className="w-4 h-4" />
-              <span>Download Link Fail වුනාද? (Hotlink Protection)</span>
+        {/* Actions Box */}
+        {isFinished && (
+          <div className="space-y-4 animate-fade-in">
+            {/* Copy Link Main Action */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={downloadUrl}
+                className="flex-1 bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-gray-300 truncate"
+              />
+              <button
+                onClick={handleCopyLink}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copied ? 'COPIED!' : 'COPY LINK'}</span>
+              </button>
             </div>
-            <p className="text-[11px] text-red-300 leading-relaxed">
-              පහත Link එක Copy කර Chrome Browser එකේ Address Bar එකට Paste කර Download කරගන්න. 👇
-            </p>
+
+            <button
+              onClick={handleOpenDirectly}
+              className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Open Directly in Browser</span>
+            </button>
+
+            {/* Sri Lankan Mobile Chrome Instructions */}
+            <div className="p-4 bg-black/40 border border-white/5 rounded-xl text-xs space-y-2 text-gray-300">
+              <div className="font-extrabold text-white flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <span>Pixeldrain Hotlink Error එක වැළැක්වීමට:</span>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-gray-400 text-[11px] leading-relaxed">
+                <li>උඩ ඇති <b>COPY LINK</b> Button එක Click කරන්න.</li>
+                <li>ඔබගේ Phone එකේ <b>Google Chrome Browser</b> එක Open කරන්න.</li>
+                <li>Chrome හි Search Bar එකෙහි Link එක <b>Paste</b> කර Go කරන්න.</li>
+                <li>එවිට එන Pixeldrain පිටුවේ <b>Download</b> Button එක ඔබන්න.</li>
+              </ol>
+            </div>
           </div>
         )}
-
-        {/* Copy Link Input Box */}
-        <div className="w-full flex items-center space-x-2">
-          <input
-            type="text"
-            readOnly
-            value={downloadUrl || 'https://pixeldrain.com/u/...' }
-            className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white font-mono truncate focus:outline-none"
-          />
-          <button
-            onClick={handleCopyLink}
-            className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow cursor-pointer transition-all whitespace-nowrap"
-          >
-            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? 'Copied!' : 'Copy Link'}</span>
-          </button>
-        </div>
-
-        {/* 4-Step Sinhala Instructions Card matching index (45).html */}
-        <div className="w-full p-4 rounded-2xl bg-gray-900/80 border border-gray-800 text-left space-y-4">
-          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-            📋 කරන්නේ මෙහෙමයි (INSTRUCTIONS)
-          </h4>
-
-          {/* Step 1 */}
-          <div className="flex items-start space-x-3 text-xs">
-            <div className="w-6 h-6 rounded-full bg-red-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-              1
-            </div>
-            <div>
-              <h5 className="font-bold text-white">Link Copy කරන්න</h5>
-              <p className="text-[11px] text-gray-400">ඉහලින් "Copy Link" button එක tap කරන්න. Link එක clipboard එකේ copy වේ.</p>
-            </div>
-          </div>
-
-          {/* Step 2 */}
-          <div className="flex items-start space-x-3 text-xs">
-            <div className="w-6 h-6 rounded-full bg-red-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-              2
-            </div>
-            <div>
-              <h5 className="font-bold text-white">Chrome Browser Open කරන්න</h5>
-              <p className="text-[11px] text-gray-400">ඔයාගේ phone එකේ Chrome App එක open කරන්න.</p>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="flex items-start space-x-3 text-xs">
-            <div className="w-6 h-6 rounded-full bg-red-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-              3
-            </div>
-            <div>
-              <h5 className="font-bold text-white">Address Bar එක Tap කර Paste කරන්න</h5>
-              <p className="text-[11px] text-gray-400">Top එකේ address bar එක tap කරලා Paste කරන්න.</p>
-            </div>
-          </div>
-
-          {/* Step 4 */}
-          <div className="flex items-start space-x-3 text-xs">
-            <div className="w-6 h-6 rounded-full bg-red-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-              4
-            </div>
-            <div>
-              <h5 className="font-bold text-white">Download කරන්න</h5>
-              <p className="text-[11px] text-gray-400">Link එක paste කර enter කළ විට Auto download ආරම්භ වේ. ✅</p>
-            </div>
-          </div>
-
-        </div>
-
       </div>
-
     </div>
   );
 }

@@ -16,7 +16,7 @@ export default function MovieCard({ movie, onSelect, onOpenWhatsAppDl }) {
           loading="lazy"
         />
 
-        {/* Bottom Gradient Overlay */}
+        {/* Bottom Dark Gradient Overlay matching index (45).html */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-transparent to-transparent opacity-90"></div>
 
         {/* Center Hover Play Circle Icon from index (45).html */}

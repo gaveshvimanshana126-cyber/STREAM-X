@@ -4,14 +4,23 @@ import HeroSlider from './components/HeroSlider.jsx';
 import CategoryFilter from './components/CategoryFilter.jsx';
 import MovieGrid from './components/MovieGrid.jsx';
 import MovieDetailModal from './components/MovieDetailModal.jsx';
-import SubtitleDownloadModal from './components/SubtitleDownloadModal.jsx';
+import EpisodeDetailModal from './components/EpisodeDetailModal.jsx';
 import PixeldrainDownloadModal from './components/PixeldrainDownloadModal.jsx';
-import WhatsAppDownloadModal from './components/WhatsAppDownloadModal.jsx';
-import RequestMovieModal from './components/RequestMovieModal.jsx';
-import AdminLoginModal from './components/AdminLoginModal.jsx';
+import RequestCenterModal from './components/RequestCenterModal.jsx';
+import NotificationPanel from './components/NotificationPanel.jsx';
+import AuthModal from './components/AuthModal.jsx';
+import ProfileModal from './components/ProfileModal.jsx';
+import UpcomingMoviesPage from './components/UpcomingMoviesPage.jsx';
+import AboutPage from './components/AboutPage.jsx';
+import GenresPage from './components/GenresPage.jsx';
+import ActorsPage from './components/ActorsPage.jsx';
+import FullCastPage from './components/FullCastPage.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
+import AdminLoginModal from './components/AdminLoginModal.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
-import { getMovies, saveMovies } from './data/moviesData.js';
+
+import { getMovies } from './data/moviesData.js';
+import { subscribeRtdb, trackVisitor, setAuthToken } from './services/firebase.js';
 
 export default function App() {
   const [movies, setMovies] = useState(getMovies());
@@ -19,377 +28,352 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('all_movies');
   const [selectedYear, setSelectedYear] = useState('all');
 
-  // Loading Screen State from index (45).html
+  // Loading Screen State
   const [isLoading, setIsLoading] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
 
-  // Selected Movie State with Clean Pathname URL Sync
-  const [selectedMovie, setSelectedMovie] = useState(null);
-  const [subDlMovie, setSubDlMovie] = useState(null);
-  const [pixeldrainData, setPixeldrainData] = useState(null);
+  // User Auth & Session
+  const [currentUser, setCurrentUser] = useState(null);
 
-  // Admin Auth State
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  // Active Modals & Views State
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [selectedEpisode, setSelectedEpisode] = useState(null);
+  const [pixeldrainUrl, setPixeldrainUrl] = useState(null);
+  const [selectedActor, setSelectedActor] = useState(null);
+
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showNotifsPanel, setShowNotifsPanel] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showUpcomingPage, setShowUpcomingPage] = useState(false);
+  const [showAboutPage, setShowAboutPage] = useState(false);
+  const [showGenresPage, setShowGenresPage] = useState(false);
+  const [showFullCastPage, setShowFullCastPage] = useState(false);
+
+  // Admin Panel State
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
-  // Modals state
-  const [whatsappDlMovie, setWhatsappDlMovie] = useState(null);
-  const [showRequestModal, setShowRequestModal] = useState(false);
+  // Toast Notification
+  const [toastMsg, setToastMsg] = useState(null);
 
+  const triggerToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  // Restore User Session & Track Visitor
   useEffect(() => {
-    // Initial loading timer matching index (45).html
+    trackVisitor();
+
+    try {
+      const savedUser = JSON.parse(sessionStorage.getItem('cf_user') || 'null');
+      if (savedUser && savedUser.uid) {
+        setCurrentUser(savedUser);
+        if (savedUser.idToken) setAuthToken(savedUser.idToken);
+      }
+    } catch (e) { }
+
+    // Initial Loading Screen Timer
     const timer = setTimeout(() => {
       setIsFadingOut(true);
       setTimeout(() => {
         setIsLoading(false);
       }, 500);
     }, 1200);
+
     return () => clearTimeout(timer);
   }, []);
 
-  // Parse Clean URL Pathname & Query Params (/admin, /subdetails/..., /pixeldrain/..., /q=..., /category=..., /year=..., or /movie-name)
+  // Firebase Realtime DB Live Sync for Movies
+  useEffect(() => {
+    const unsubscribe = subscribeRtdb('movies', (remoteData) => {
+      if (remoteData && typeof remoteData === 'object') {
+        const movieArray = Object.values(remoteData);
+        if (movieArray.length > 0) {
+          setMovies(movieArray);
+        }
+      }
+    }, 15000);
+
+    return () => unsubscribe();
+  }, []);
+
+  // Clean URL Routing Synchronizer
   useEffect(() => {
     const handleUrlChange = () => {
       const pathname = decodeURIComponent(window.location.pathname.replace(/^\/|\/$/g, ''));
-      
-      // 0. Admin URL Trigger: /admin or /admin-panel
+
+      // Reset views
+      setShowAdmin(false);
+      setShowAdminLogin(false);
+
       if (pathname === 'admin' || pathname === 'admin-panel') {
-        setSelectedMovie(null);
-        setSubDlMovie(null);
-        setPixeldrainData(null);
-        if (isAdminLoggedIn) {
-          setShowAdmin(true);
-        } else {
-          setShowAdminLogin(true);
-        }
+        if (currentUser?.isAdmin) setShowAdmin(true);
+        else setShowAdminLogin(true);
         return;
       }
 
-      // 1. Pixeldrain Helper Trigger: /pixeldrain/... or /dlpb/...
-      if (pathname.startsWith('pixeldrain/') || pathname.startsWith('dlpb/')) {
-        const url = pathname.replace(/^pixeldrain\/|^dlpb\//, '');
-        setPixeldrainData({ url: decodeURIComponent(url) });
-        setSelectedMovie(null);
-        setSubDlMovie(null);
+      if (pathname === 'cirequest' || pathname === 'request') {
+        setShowRequestModal(true);
         return;
       }
 
-      // 2. Subtitle Download Flow Trigger: /subdetails/movie-slug or /subdlmovie/movie-slug
-      if (pathname.startsWith('subdetails/') || pathname.startsWith('subdlmovie/')) {
-        const movieSlug = pathname.replace(/^subdetails\/|^subdlmovie\//, '');
+      if (pathname === 'upcoming') {
+        setShowUpcomingPage(true);
+        return;
+      }
+
+      if (pathname === 'genre') {
+        setShowGenresPage(true);
+        return;
+      }
+
+      if (pathname === 'about') {
+        setShowAboutPage(true);
+        return;
+      }
+
+      if (pathname === 'actersspagefull') {
+        setShowFullCastPage(true);
+        return;
+      }
+
+      // Check Direct Movie Path
+      if (pathname && !pathname.includes('=')) {
         const found = movies.find(m => {
-          const slug = m.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-          return slug === movieSlug || m.id?.toString() === movieSlug;
-        });
-        if (found) {
-          setSubDlMovie(found);
-          setSelectedMovie(null);
-          setPixeldrainData(null);
-        }
-        return;
-      }
-
-      // 3. Search Query Sync: /q=keyword
-      if (pathname.startsWith('q=')) {
-        const query = pathname.replace('q=', '');
-        setSearchTerm(query);
-        setSelectedMovie(null);
-        setSubDlMovie(null);
-        setPixeldrainData(null);
-        return;
-      }
-
-      // 4. Category Pill Sync: /category=cat_name
-      if (pathname.startsWith('category=')) {
-        const catSlug = pathname.replace('category=', '');
-        if (catSlug === 'tv-series' || catSlug === 'all_series') setSelectedCategory('all_series');
-        else if (catSlug === 'movies' || catSlug === 'all_movies') setSelectedCategory('all_movies');
-        else if (catSlug === '18-plus' || catSlug === '18+') setSelectedCategory('18+');
-        else {
-          const matchingCat = catSlug.charAt(0).toUpperCase() + catSlug.slice(1);
-          setSelectedCategory(matchingCat);
-        }
-        setSelectedMovie(null);
-        setSubDlMovie(null);
-        setPixeldrainData(null);
-        return;
-      }
-
-      // 5. Year Selector Sync: /year=2026
-      if (pathname.startsWith('year=')) {
-        const yr = pathname.replace('year=', '');
-        setSelectedYear(yr);
-        setSelectedMovie(null);
-        setSubDlMovie(null);
-        setPixeldrainData(null);
-        return;
-      }
-
-      // 6. Direct Movie Page Sync: /movie-name
-      if (pathname && !pathname.startsWith('q=') && !pathname.startsWith('category=') && !pathname.startsWith('year=')) {
-        const found = movies.find(m => {
-          const slug = m.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const slug = m.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
           return slug === pathname || m.id?.toString() === pathname;
         });
         if (found) {
           setSelectedMovie(found);
-          setSubDlMovie(null);
-          setPixeldrainData(null);
-        } else {
-          setSelectedMovie(null);
-          setSubDlMovie(null);
-          setPixeldrainData(null);
         }
-      } else {
-        setSelectedMovie(null);
-        setSubDlMovie(null);
-        setPixeldrainData(null);
       }
     };
 
     handleUrlChange();
     window.addEventListener('popstate', handleUrlChange);
     return () => window.removeEventListener('popstate', handleUrlChange);
-  }, [movies, isAdminLoggedIn]);
+  }, [movies, currentUser]);
 
-  const handleAdminTrigger = () => {
-    window.history.pushState({}, '', '/admin');
-    if (isAdminLoggedIn) {
-      setShowAdmin(true);
-    } else {
-      setShowAdminLogin(true);
-    }
-  };
-
-  // Handle Subtitle Download Flow Open
-  const handleOpenSubDl = (movie) => {
-    const slug = movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    window.history.pushState({}, '', `/subdetails/${slug}`);
-    setSubDlMovie(movie);
-    setSelectedMovie(null);
-  };
-
-  // Handle Category Selection with Live URL Sync (/category=name)
-  const handleSelectCategory = (catId) => {
-    setSelectedCategory(catId);
-    let catSlug = catId.toLowerCase();
-    if (catId === 'all_series') catSlug = 'tv-series';
-    if (catId === 'all_movies') catSlug = 'movies';
-    if (catId === '18+') catSlug = '18-plus';
-
-    if (catId === 'all_movies') {
-      window.history.pushState({}, '', '/');
-    } else {
-      window.history.pushState({}, '', `/category=${catSlug}`);
-    }
-  };
-
-  // Handle Year Selection with Live URL Sync (/year=2026)
-  const handleSelectYear = (yr) => {
-    setSelectedYear(yr);
-    if (yr === 'all') {
-      window.history.pushState({}, '', '/');
-    } else {
-      window.history.pushState({}, '', `/year=${yr}`);
-    }
-  };
-
-  // Handle Search Term Change with Live URL Sync (/q=query)
-  const handleSearchChange = (term) => {
-    setSearchTerm(term);
-    if (term.trim()) {
-      window.history.pushState({}, '', `/q=${encodeURIComponent(term.trim())}`);
-    } else {
-      window.history.pushState({}, '', '/');
-    }
-  };
-
-  const handleSelectMovie = (movie) => {
-    if (movie) {
-      const slug = movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      window.history.pushState({}, '', `/${slug}`);
-      setSelectedMovie(movie);
-      window.scrollTo(0, 0);
-    } else {
-      window.history.pushState({}, '', '/');
-      setSelectedMovie(null);
-      window.scrollTo(0, 0);
-    }
-  };
-
-  const handleSaveMovies = (newMoviesList) => {
-    setMovies(newMoviesList);
-    saveMovies(newMoviesList);
-  };
-
-  // Filter movies by search term, category pill, and year dropdown matching index (45).html
+  // Filter Logic matching index (45).html
   const filteredMovies = useMemo(() => {
-    return movies.filter((m) => {
+    return movies.filter(movie => {
+      // 1. Search Query Filter
       if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase().trim();
-        const matchTitle = m.title && m.title.toLowerCase().includes(q);
-        const matchGenre = m.genre && m.genre.toLowerCase().includes(q);
-        const matchCast = m.cast && m.cast.toLowerCase().includes(q);
-        const matchYear = m.year && m.year.toString().includes(q);
-        if (!matchTitle && !matchGenre && !matchCast && !matchYear) return false;
+        const query = searchTerm.toLowerCase();
+        const titleMatch = movie.title?.toLowerCase().includes(query);
+        const castMatch = movie.cast?.toLowerCase().includes(query) || movie.stars?.toLowerCase().includes(query);
+        const directorMatch = movie.director?.toLowerCase().includes(query);
+        if (!titleMatch && !castMatch && !directorMatch) return false;
       }
 
-      if (selectedCategory === 'all_movies' && m.type === 'series') return false;
-      if (selectedCategory === 'all_series' && m.type !== 'series') return false;
-      if (selectedCategory === 'trending' && (!m.rating || parseFloat(m.rating) < 7.0)) return false;
-      if (
-        selectedCategory !== 'all_movies' &&
-        selectedCategory !== 'all_series' &&
-        selectedCategory !== 'trending'
-      ) {
-        if (!m.genre || !m.genre.toLowerCase().includes(selectedCategory.toLowerCase())) return false;
+      // 2. Year Filter
+      if (selectedYear !== 'all' && movie.year !== selectedYear) {
+        return false;
       }
 
-      if (selectedYear !== 'all' && m.year.toString() !== selectedYear) return false;
+      // 3. Category / Genre Filter
+      if (selectedCategory === 'all_movies') {
+        return !movie.type || movie.type === 'movie';
+      }
+      if (selectedCategory === 'all_series') {
+        return movie.type === 'tv' || movie.type === 'series' || movie.type === 'tv-series';
+      }
+      if (selectedCategory === 'trending') {
+        return (movie.views || 0) > 10 || parseFloat(movie.rating || 0) >= 8.0;
+      }
+
+      // Genre specific matching
+      if (movie.genre) {
+        return movie.genre.toLowerCase().includes(selectedCategory.toLowerCase());
+      }
 
       return true;
     });
   }, [movies, searchTerm, selectedCategory, selectedYear]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0A0A] text-gray-100 selection:bg-[#E8262A] selection:text-white">
-      
-      {/* 0. Film Reel Initial Loading Screen matching index (45).html */}
+    <div className="min-h-screen bg-[#090a0f] text-gray-100 selection:bg-red-600 selection:text-white font-sans">
+      {/* Loading Screen */}
       {isLoading && <LoadingScreen isFadingOut={isFadingOut} />}
 
-      {/* 1. Top Floating Glass Navbar matching index (45).html */}
+      {/* Toast Alert */}
+      {toastMsg && (
+        <div className="fixed top-20 right-4 z-[120] bg-neutral-900 border border-red-600/50 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-bold flex items-center gap-2 animate-bounce">
+          <span>{toastMsg}</span>
+        </div>
+      )}
+
+      {/* Navigation Bar */}
       <Navbar
         searchTerm={searchTerm}
-        setSearchTerm={handleSearchChange}
-        onOpenAdmin={handleAdminTrigger}
-        onOpenRequest={() => setShowRequestModal(true)}
+        setSearchTerm={setSearchTerm}
+        onOpenAuth={() => setShowAuthModal(true)}
+        onOpenProfile={() => setShowProfileModal(true)}
+        onOpenNotifs={() => setShowNotifsPanel(true)}
+        onOpenRequests={() => setShowRequestModal(true)}
+        onOpenUpcoming={() => setShowUpcomingPage(true)}
+        onOpenGenres={() => setShowGenresPage(true)}
+        onOpenAbout={() => setShowAboutPage(true)}
+        onOpenAdmin={() => {
+          if (currentUser?.isAdmin) setShowAdmin(true);
+          else setShowAdminLogin(true);
+        }}
+        currentUser={currentUser}
       />
 
-      {/* Main Content Container */}
-      <main className="flex-1 pb-16">
-        
-        {/* If Pixeldrain Helper Screen is active */}
-        {pixeldrainData ? (
-          <PixeldrainDownloadModal
-            downloadUrl={pixeldrainData.url}
-            onClose={() => {
-              setPixeldrainData(null);
-              window.history.pushState({}, '', '/');
-            }}
-          />
-        ) : subDlMovie ? (
-          /* If Subtitle Download Flow is active, render 3-step Subtitle Download View */
-          <SubtitleDownloadModal
-            movie={subDlMovie}
-            onClose={() => {
-              setSubDlMovie(null);
-              window.history.pushState({}, '', '/');
-            }}
-          />
-        ) : selectedMovie ? (
-          /* If Movie is selected, render full-page Movie Details with clean URL (/movie-name) */
-          <MovieDetailModal
-            movie={selectedMovie}
-            onClose={() => handleSelectMovie(null)}
-            onOpenWhatsAppDl={(m) => setWhatsappDlMovie(m)}
-            onOpenSubDl={(m) => handleOpenSubDl(m)}
-          />
-        ) : (
-          <>
-            {/* 2. Featured Hero Carousel matching index (45).html */}
-            {!searchTerm && (
-              <HeroSlider
-                movies={movies}
-                onSelectMovie={handleSelectMovie}
-                onOpenWhatsAppDl={setWhatsappDlMovie}
-              />
-            )}
+      {/* Hero Featured Slider */}
+      {!searchTerm && selectedCategory === 'all_movies' && selectedYear === 'all' && (
+        <HeroSlider
+          movies={movies}
+          onSelectMovie={(m) => setSelectedMovie(m)}
+        />
+      )}
 
-            {/* 3. Category Pills & Year Selector Bar */}
-            <CategoryFilter
-              selectedCategory={selectedCategory}
-              onSelectCategory={handleSelectCategory}
-              selectedYear={selectedYear}
-              onSelectYear={handleSelectYear}
-            />
+      {/* Category & Year Filters */}
+      <CategoryFilter
+        selectedCategory={selectedCategory}
+        onSelectCategory={(cat) => setSelectedCategory(cat)}
+        selectedYear={selectedYear}
+        onSelectYear={(yr) => setSelectedYear(yr)}
+      />
 
-            {/* 4. Movie Catalog Grid */}
-            <MovieGrid
-              movies={filteredMovies}
-              onSelectMovie={handleSelectMovie}
-              onOpenWhatsAppDl={setWhatsappDlMovie}
-              activeType="all"
-            />
-          </>
-        )}
-
+      {/* Movie Catalog Grid */}
+      <main className="max-w-7xl mx-auto px-4 pb-16">
+        <MovieGrid
+          movies={filteredMovies}
+          onSelectMovie={(m) => setSelectedMovie(m)}
+        />
       </main>
 
-      {/* Footer matching index (45).html */}
-      <footer className="border-t border-gray-800/80 bg-[#060404] py-8">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
-          <div className="space-y-1 text-center sm:text-left">
-            <p className="text-white font-bold text-base tracking-wider uppercase font-['Bebas_Neue']">
-              CINE<span className="text-[#E8262A]">FLIX</span> LK
-            </p>
-            <p className="text-gray-400">ලංකාවේ #1 Sinhala Subtitle අඩවිය • Watch Movies & TV Series Online Free.</p>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <button onClick={handleAdminTrigger} className="hover:text-white transition-colors">
-              Admin Login
-            </button>
-          </div>
-        </div>
-      </footer>
-
-      {/* WhatsApp Modal & Other Popups */}
-      {whatsappDlMovie && (
-        <WhatsAppDownloadModal
-          movie={whatsappDlMovie}
-          onClose={() => setWhatsappDlMovie(null)}
+      {/* Modals & Sub-pages */}
+      {selectedMovie && (
+        <MovieDetailModal
+          movie={{ ...selectedMovie, allMovies: movies }}
+          onClose={() => setSelectedMovie(null)}
+          onOpenPixeldrain={(url) => setPixeldrainUrl(url)}
+          onOpenEpisode={(m, ep, sName) => setSelectedEpisode({ movie: m, episode: ep, seasonName: sName })}
+          onSelectMovie={(m) => setSelectedMovie(m)}
+          onToast={triggerToast}
         />
       )}
 
-      {showRequestModal && (
-        <RequestMovieModal
-          onClose={() => setShowRequestModal(false)}
+      {selectedEpisode && (
+        <EpisodeDetailModal
+          isOpen={!!selectedEpisode}
+          onClose={() => setSelectedEpisode(null)}
+          movie={selectedEpisode.movie}
+          episode={selectedEpisode.episode}
+          seasonName={selectedEpisode.seasonName}
+          onSelectEpisode={(ep, sName) => setSelectedEpisode({ ...selectedEpisode, episode: ep, seasonName: sName })}
+          onOpenPixeldrain={(url) => setPixeldrainUrl(url)}
+          onToast={triggerToast}
         />
       )}
 
-      {/* Admin Login Modal (Credentials: cineflix2008 / cineflixth2008) */}
+      {pixeldrainUrl && (
+        <PixeldrainDownloadModal
+          isOpen={!!pixeldrainUrl}
+          onClose={() => setPixeldrainUrl(null)}
+          downloadUrl={pixeldrainUrl}
+          onToast={triggerToast}
+        />
+      )}
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          triggerToast(`✓ Welcome back, ${user.displayName}!`);
+        }}
+      />
+
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={currentUser}
+        onLogout={() => {
+          setCurrentUser(null);
+          sessionStorage.removeItem('cf_user');
+          triggerToast('Logged out');
+        }}
+        movies={movies}
+        onOpenMovie={(m) => setSelectedMovie(m)}
+      />
+
+      <NotificationPanel
+        isOpen={showNotifsPanel}
+        onClose={() => setShowNotifsPanel(false)}
+        isAdmin={currentUser?.isAdmin}
+        movies={movies}
+        onOpenMovie={(m) => setSelectedMovie(m)}
+      />
+
+      <RequestCenterModal
+        isOpen={showRequestModal}
+        onClose={() => setShowRequestModal(false)}
+        onToast={triggerToast}
+      />
+
+      <UpcomingMoviesPage
+        isOpen={showUpcomingPage}
+        onClose={() => setShowUpcomingPage(false)}
+      />
+
+      <AboutPage
+        isOpen={showAboutPage}
+        onClose={() => setShowAboutPage(false)}
+      />
+
+      <GenresPage
+        isOpen={showGenresPage}
+        onClose={() => setShowGenresPage(false)}
+        onSelectGenre={(genre) => setSelectedCategory(genre)}
+        movies={movies}
+      />
+
+      <ActorsPage
+        isOpen={!!selectedActor}
+        onClose={() => setSelectedActor(null)}
+        actorName={selectedActor}
+        movies={movies}
+        onOpenMovie={(m) => setSelectedMovie(m)}
+      />
+
+      <FullCastPage
+        isOpen={showFullCastPage}
+        onClose={() => setShowFullCastPage(false)}
+        movies={movies}
+        onSelectActor={(actorName) => setSelectedActor(actorName)}
+      />
+
+      {/* Admin Logins & Panel */}
       {showAdminLogin && (
         <AdminLoginModal
+          isOpen={showAdminLogin}
+          onClose={() => setShowAdminLogin(false)}
           onLoginSuccess={() => {
-            setIsAdminLoggedIn(true);
             setShowAdminLogin(false);
             setShowAdmin(true);
           }}
-          onClose={() => {
-            setShowAdminLogin(false);
-            window.history.pushState({}, '', '/');
-          }}
         />
       )}
 
-      {/* Admin Control Panel */}
       {showAdmin && (
         <AdminPanel
           movies={movies}
-          onSaveMovies={handleSaveMovies}
-          onLogout={() => {
-            setIsAdminLoggedIn(false);
-            setShowAdmin(false);
-            window.history.pushState({}, '', '/');
+          onRefreshMovies={() => {
+            // Refreshed via live subscription
           }}
-          onClose={() => {
+          onClose={() => setShowAdmin(false)}
+          onLogout={() => {
             setShowAdmin(false);
-            window.history.pushState({}, '', '/');
+            triggerToast('Admin logged out');
           }}
         />
       )}
-
     </div>
   );
 }

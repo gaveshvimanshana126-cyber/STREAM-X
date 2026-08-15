@@ -35,8 +35,7 @@ export default function CategoryFilter({
 }) {
   return (
     <div className="max-w-7xl mx-auto px-4 pt-24 pb-2 space-y-3">
-      
-      {/* Category Pills Bar matching index (45).html */}
+      {/* Category Pills Bar */}
       <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1">
         {CATEGORIES.map((cat) => {
           const isActive = selectedCategory === cat.id;
@@ -46,7 +45,7 @@ export default function CategoryFilter({
             <button
               key={cat.id}
               onClick={() => onSelectCategory(cat.id)}
-              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
+              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                 isActive
                   ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-600/40 transform scale-105'
                   : is18Plus
@@ -61,13 +60,13 @@ export default function CategoryFilter({
         })}
       </div>
 
-      {/* Year Selector Dropdown matching index (45).html */}
+      {/* Year Selector Dropdown */}
       <div className="flex items-center space-x-3">
         <div className="relative">
           <select
             value={selectedYear}
             onChange={(e) => onSelectYear(e.target.value)}
-            className="appearance-none bg-gray-900 border border-gray-800 text-gray-300 text-xs font-bold rounded-full px-4 py-1.5 pr-8 focus:outline-none focus:border-red-500 cursor-pointer"
+            className="appearance-none bg-neutral-900 border border-white/10 text-gray-300 text-xs font-bold rounded-full px-4 py-1.5 pr-8 focus:outline-none focus:border-red-500 cursor-pointer"
           >
             <option value="all">All Years</option>
             {YEARS.filter(y => y !== 'all').map(y => (
@@ -80,13 +79,12 @@ export default function CategoryFilter({
         {selectedYear !== 'all' && (
           <button
             onClick={() => onSelectYear('all')}
-            className="text-xs font-bold text-red-500 hover:text-red-400 underline"
+            className="text-xs font-bold text-red-500 hover:text-red-400 underline cursor-pointer"
           >
             Clear Year
           </button>
         )}
       </div>
-
     </div>
   );
 }

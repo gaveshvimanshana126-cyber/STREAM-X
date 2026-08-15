@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
-import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search, User, Image, Subtitles } from 'lucide-react';
-import { getBotPhoneNumber, saveBotPhoneNumber } from '../data/moviesData.js';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Save, Phone, Film, Download, Trash2, Check, Edit3, Link2, Tv, RefreshCw, LogOut, ArrowLeft, Search, User, Image, Subtitles, Bell, ThumbsUp, BarChart2 } from 'lucide-react';
+import { rtdbGet, rtdbSet, rtdbPush, rtdbRemove } from '../services/firebase';
 
-export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) {
-  const [botPhone, setBotPhone] = useState(getBotPhoneNumber());
-  const [phoneSaved, setPhoneSaved] = useState(false);
+export default function AdminPanel({ movies, onRefreshMovies, onClose, onLogout }) {
   const [editingMovieId, setEditingMovieId] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('movies'); // 'movies' | 'requests' | 'notifs' | 'analytics'
+  const [requestsList, setRequestsList] = useState([]);
+  const [analytics, setAnalytics] = useState({ totalVisitors: 0, viewsDaily: {}, downloadsDaily: {} });
+  const [notifMsg, setNotifMsg] = useState('');
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Movie form state covering ALL fields matching index (45).html
+  // Form State
   const [movieForm, setMovieForm] = useState({
     title: '',
     year: new Date().getFullYear().toString(),
@@ -19,35 +22,45 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
     subBy: 'Cineflix Sub',
     runtime: '2h 18m',
     country: 'USA',
-    releaseDate: 'December 23, 2022',
-    director: 'Trinadha Rao Nakkina',
-    stars: 'Ravi Teja, Sreeleela, Jayaram',
-    cast: 'Ravi Teja, Sreeleela, Jayaram',
+    director: '',
+    stars: '',
+    cast: '',
     stills: '',
     poster: '',
     backdrop: '',
     description: '',
     streamUrl: '',
     streamUrl2: '',
-    srv1: '',
-    srv2: '',
-    size720p: '1.46GB',
-    size1080p: '1.85GB',
+    pd720: '',
+    pd1080: '',
     tgLink: '',
     subUrl: ''
   });
 
-  const handleSavePhone = (e) => {
-    e.preventDefault();
-    saveBotPhoneNumber(botPhone);
-    setPhoneSaved(true);
-    setTimeout(() => setPhoneSaved(false), 2500);
+  useEffect(() => {
+    loadRequestsData();
+    loadAnalyticsData();
+  }, []);
+
+  const loadRequestsData = async () => {
+    try {
+      const data = await rtdbGet('requests') || {};
+      const list = Object.entries(data).map(([key, val]) => ({ key, ...val })).sort((a, b) => (b.time || 0) - (a.time || 0));
+      setRequestsList(list);
+    } catch (e) { }
+  };
+
+  const loadAnalyticsData = async () => {
+    try {
+      const data = await rtdbGet('analytics') || {};
+      setAnalytics(data);
+    } catch (e) { }
   };
 
   const handleEditMovieClick = (movie) => {
     setEditingMovieId(movie.id);
-    const dl720 = movie.downloads?.find(d => d.res === '720p') || movie.downloads?.[0];
-    const dl1080 = movie.downloads?.find(d => d.res === '1080p') || movie.downloads?.[1];
+    const dl720 = movie.downloads?.find(d => d.res === '720p') || movie.downloads?.[0] || {};
+    const dl1080 = movie.downloads?.find(d => d.res === '1080p') || movie.downloads?.[1] || {};
 
     setMovieForm({
       title: movie.title || '',
@@ -59,7 +72,6 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
       subBy: movie.subBy || 'Cineflix Sub',
       runtime: movie.runtime || '2h 18m',
       country: movie.country || 'USA',
-      releaseDate: movie.releaseDate || 'December 23, 2022',
       director: movie.director || '',
       stars: movie.stars || '',
       cast: movie.cast || '',
@@ -69,18 +81,44 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
       description: movie.description || '',
       streamUrl: movie.streamUrl || '',
       streamUrl2: movie.streamUrl2 || '',
-      srv1: dl720?.srv1 || '',
-      srv2: dl720?.srv2 || '',
-      size720p: dl720?.size || '1.46GB',
-      size1080p: dl1080?.size || '1.85GB',
-      tgLink: dl720?.tgLink || '',
+      pd720: dl720.pd720 || '',
+      pd1080: dl1080.pd1080 || '',
+      tgLink: dl720.tgLink || '',
       subUrl: movie.subUrl || ''
     });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSaveMovieForm = (e) => {
+  const handleResetForm = () => {
+    setEditingMovieId(null);
+    setMovieForm({
+      title: '',
+      year: new Date().getFullYear().toString(),
+      type: 'movie',
+      rating: '7.5',
+      quality: 'WEB-DL',
+      genre: 'Action,Thriller',
+      subBy: 'Cineflix Sub',
+      runtime: '2h 18m',
+      country: 'USA',
+      director: '',
+      stars: '',
+      cast: '',
+      stills: '',
+      poster: '',
+      backdrop: '',
+      description: '',
+      streamUrl: '',
+      streamUrl2: '',
+      pd720: '',
+      pd1080: '',
+      tgLink: '',
+      subUrl: ''
+    });
+  };
+
+  const handleSaveMovieForm = async (e) => {
     e.preventDefault();
     if (!movieForm.title) return;
 
@@ -88,8 +126,10 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
       ? movieForm.stills.split(',').map(s => s.trim()).filter(Boolean)
       : [movieForm.backdrop, movieForm.poster].filter(Boolean);
 
+    const mId = editingMovieId || `-m${Date.now().toString(36)}`;
+
     const movieObj = {
-      id: editingMovieId || `-m${Date.now().toString(36)}`,
+      id: mId,
       addedAt: Date.now(),
       title: movieForm.title,
       year: movieForm.year,
@@ -100,490 +140,422 @@ export default function AdminPanel({ movies, onSaveMovies, onClose, onLogout }) 
       subBy: movieForm.subBy,
       runtime: movieForm.runtime,
       country: movieForm.country,
-      releaseDate: movieForm.releaseDate,
       director: movieForm.director,
       stars: movieForm.stars,
       cast: movieForm.cast,
       stills: stillsList,
-      poster: movieForm.poster || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500',
-      backdrop: movieForm.backdrop || 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200',
+      poster: movieForm.poster,
+      backdrop: movieForm.backdrop || movieForm.poster,
       description: movieForm.description,
       streamUrl: movieForm.streamUrl,
       streamUrl2: movieForm.streamUrl2,
       subUrl: movieForm.subUrl,
       downloads: [
-        {
-          res: '720p',
-          size: movieForm.size720p || '1.46GB',
-          srv1: movieForm.srv1,
-          srv2: movieForm.srv2,
-          tgLink: movieForm.tgLink
-        },
-        {
-          res: '1080p',
-          size: movieForm.size1080p || '1.85GB',
-          srv1: movieForm.srv1,
-          srv2: movieForm.srv2,
-          tgLink: movieForm.tgLink
-        }
+        { res: '720p', pd720: movieForm.pd720, tgLink: movieForm.tgLink },
+        { res: '1080p', pd1080: movieForm.pd1080, tgLink: movieForm.tgLink }
       ]
     };
 
-    let updatedMovies;
-    if (editingMovieId) {
-      updatedMovies = movies.map(m => m.id === editingMovieId ? movieObj : m);
-    } else {
-      updatedMovies = [movieObj, ...movies];
-    }
+    try {
+      await rtdbSet(`movies/${mId}`, movieObj);
 
-    onSaveMovies(updatedMovies);
-    setEditingMovieId(null);
-    setMovieForm({
-      title: '', year: new Date().getFullYear().toString(), type: 'movie', rating: '7.5',
-      quality: 'WEB-DL', genre: 'Action,Thriller', subBy: 'Cineflix Sub', runtime: '2h 18m',
-      country: 'USA', releaseDate: 'December 23, 2022', director: 'Trinadha Rao Nakkina', stars: '',
-      cast: '', stills: '', poster: '', backdrop: '', description: '', streamUrl: '', streamUrl2: '',
-      srv1: '', srv2: '', size720p: '1.46GB', size1080p: '1.85GB', tgLink: '', subUrl: ''
-    });
-  };
+      // Push notification broadcast
+      await rtdbPush('notifications', {
+        msg: editingMovieId ? `Admin updated "${movieForm.title}"` : `Admin added "${movieForm.title}"`,
+        type: 'movie',
+        time: Date.now()
+      });
 
-  const handleDeleteMovie = (id) => {
-    if (window.confirm('Are you sure you want to delete this movie from the database?')) {
-      const updated = movies.filter(m => m.id !== id);
-      onSaveMovies(updated);
-      if (editingMovieId === id) setEditingMovieId(null);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
+
+      handleResetForm();
+      if (onRefreshMovies) onRefreshMovies();
+    } catch (e) {
+      alert('Save failed: ' + e.message);
     }
   };
 
-  const filteredMovies = movies.filter(m => 
-    !adminSearch.trim() || m.title.toLowerCase().includes(adminSearch.toLowerCase().trim())
+  const handleDeleteMovie = async (mId) => {
+    if (!window.confirm('මෙම චිත්‍රපටය Database එකෙන් සම්පූර්ණයෙන්ම Delete කරන්නද?')) return;
+    try {
+      await rtdbRemove(`movies/${mId}`);
+      if (onRefreshMovies) onRefreshMovies();
+    } catch (e) {
+      alert('Delete failed');
+    }
+  };
+
+  const handleMarkRequestDone = async (reqKey) => {
+    try {
+      await rtdbSet(`requests/${reqKey}/status`, 'done');
+      loadRequestsData();
+    } catch (e) { }
+  };
+
+  const handleDeleteRequest = async (reqKey) => {
+    try {
+      await rtdbRemove(`requests/${reqKey}`);
+      loadRequestsData();
+    } catch (e) { }
+  };
+
+  const handleBroadcastNotif = async (e) => {
+    e.preventDefault();
+    if (!notifMsg.trim()) return;
+
+    try {
+      await rtdbPush('notifications', {
+        msg: notifMsg,
+        type: 'movie',
+        time: Date.now()
+      });
+      setNotifMsg('');
+      alert('✓ Broadcast Notification එක සාර්ථකව යවන ලදී!');
+    } catch (e) { }
+  };
+
+  const filteredMovies = movies.filter(m =>
+    m.title?.toLowerCase().includes(adminSearch.toLowerCase()) ||
+    m.year?.includes(adminSearch)
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0A0A0A] overflow-y-auto w-full min-h-screen text-gray-100 font-sans animate-fadeIn">
-      
-      {/* Sticky Full-Page Header Bar */}
-      <div className="sticky top-0 z-40 bg-[#060404]/90 backdrop-blur-xl border-b border-gray-800/80 px-4 sm:px-8 py-4 flex items-center justify-between shadow-2xl">
-        <div className="flex items-center space-x-4">
+    <div className="fixed inset-0 z-[100] bg-neutral-950 text-white overflow-y-auto animate-fade-in p-4 sm:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition text-gray-400 hover:text-white">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-xl font-black tracking-wider uppercase text-white">ADMIN DASHBOARD</h1>
+          </div>
+
+          <button onClick={onLogout} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 border border-red-600/40 rounded-xl text-xs font-bold hover:bg-red-600 hover:text-white transition">
+            <LogOut className="w-4 h-4" /> Logout
+          </button>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-white/10 pb-2">
           <button
-            onClick={onClose}
-            className="flex items-center space-x-2 px-4 py-2 rounded-full bg-gray-900 hover:bg-[#E8262A] text-white text-xs font-bold transition-all border border-gray-700/60 shadow cursor-pointer"
+            onClick={() => setActiveTab('movies')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              activeTab === 'movies' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
+            }`}
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Site</span>
+            <Film className="w-4 h-4" /> Movie Catalog ({movies.length})
           </button>
 
-          <div className="space-y-0.5">
-            <h1 className="text-xl sm:text-2xl font-black text-white font-['Bebas_Neue'] tracking-wider uppercase leading-none">
-              CINE<span className="text-[#E8262A]">FLIX</span> ADMIN DASHBOARD
-            </h1>
-            <p className="text-[10px] text-gray-400 font-semibold hidden sm:block">
-              Full Control over Movies, Directors, Cast, Stills, Video Streams, Subtitles & Download Mirrors
-            </p>
-          </div>
+          <button
+            onClick={() => setActiveTab('requests')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              activeTab === 'requests' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
+            }`}
+          >
+            <ThumbsUp className="w-4 h-4" /> Requests ({requestsList.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('notifs')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              activeTab === 'notifs' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
+            }`}
+          >
+            <Bell className="w-4 h-4" /> Broadcast
+          </button>
+
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              activeTab === 'analytics' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-white/5 text-gray-400 hover:text-white'
+            }`}
+          >
+            <BarChart2 className="w-4 h-4" /> Analytics
+          </button>
         </div>
 
-        <button
-          onClick={onLogout}
-          className="flex items-center space-x-2 px-4 py-2 rounded-full bg-red-950/60 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 text-xs font-bold transition-all cursor-pointer shadow"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Logout</span>
-        </button>
-      </div>
-
-      {/* Main Admin Dashboard Body */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
-        
-        {/* Section 1: WhatsApp Bot Phone Settings */}
-        <div className="p-6 rounded-2xl bg-[#111111] border border-gray-800 shadow-xl space-y-4">
-          <div className="flex items-center space-x-3 border-b border-gray-800 pb-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              <Phone className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-white">WhatsApp Bot Phone Number Settings</h3>
-              <p className="text-xs text-gray-400">Official WhatsApp Bot phone number for automatic movie file delivery</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSavePhone} className="flex flex-col sm:flex-row items-center gap-3">
-            <input
-              type="text"
-              value={botPhone}
-              onChange={(e) => setBotPhone(e.target.value)}
-              placeholder="e.g. 94770000000"
-              className="flex-1 w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 font-mono"
-            />
-            <button
-              type="submit"
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-lg transition-all"
-            >
-              {phoneSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-              <span>{phoneSaved ? 'Saved!' : 'Save Phone Number'}</span>
-            </button>
-          </form>
-        </div>
-
-        {/* Section 2: Add or Edit Movie Form */}
-        <div className="p-6 rounded-2xl bg-[#111111] border border-gray-800 shadow-xl space-y-6">
-          <div className="flex items-center justify-between border-b border-gray-800 pb-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 rounded-xl bg-red-600/20 text-red-500 border border-red-500/30">
-                {editingMovieId ? <Edit3 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-              </div>
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-white">
-                  {editingMovieId ? `Editing Movie ID: ${editingMovieId}` : 'Add New Movie to Site Database'}
+        {/* Tab 1: Movie Form & Catalog */}
+        {activeTab === 'movies' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Form Column */}
+            <div className="lg:col-span-2 bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 className="font-bold text-white text-sm">
+                  {editingMovieId ? '✏️ Edit Movie Details' : '➕ Add New Movie'}
                 </h3>
-                <p className="text-xs text-gray-400">Configure movie info, cast, stills, video streams, download mirrors & subtitles</p>
+                {editingMovieId && (
+                  <button onClick={handleResetForm} className="text-xs text-red-500 font-bold hover:underline">
+                    Cancel Edit
+                  </button>
+                )}
               </div>
-            </div>
 
-            {editingMovieId && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingMovieId(null);
-                  setMovieForm({
-                    title: '', year: new Date().getFullYear().toString(), type: 'movie', rating: '7.5',
-                    quality: 'WEB-DL', genre: 'Action,Thriller', subBy: 'Cineflix Sub', runtime: '2h 18m',
-                    country: 'USA', releaseDate: 'December 23, 2022', director: 'Trinadha Rao Nakkina', stars: '',
-                    cast: '', stills: '', poster: '', backdrop: '', description: '', streamUrl: '', streamUrl2: '',
-                    srv1: '', srv2: '', size720p: '1.46GB', size1080p: '1.85GB', tgLink: '', subUrl: ''
-                  });
-                }}
-                className="px-4 py-1.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-gray-300 text-xs font-bold border border-gray-800"
-              >
-                Cancel Edit
-              </button>
-            )}
-          </div>
+              {savedSuccess && (
+                <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Movie saved successfully to Firebase!
+                </div>
+              )}
 
-          <form onSubmit={handleSaveMovieForm} className="space-y-4 text-xs">
-            
-            {/* Row 1: Title & Release Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-gray-400 mb-1 font-bold">Movie Title *</label>
-                <input
-                  type="text"
-                  required
-                  value={movieForm.title}
-                  onChange={(e) => setMovieForm({ ...movieForm, title: e.target.value })}
-                  placeholder="e.g. Dhamaka (2022)"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Release Year</label>
-                <input
-                  type="text"
-                  value={movieForm.year}
-                  onChange={(e) => setMovieForm({ ...movieForm, year: e.target.value })}
-                  placeholder="2022"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
-            </div>
+              <form onSubmit={handleSaveMovieForm} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-400 mb-1">Movie Title</label>
+                    <input
+                      type="text"
+                      value={movieForm.title}
+                      onChange={(e) => setMovieForm({ ...movieForm, title: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                      required
+                    />
+                  </div>
 
-            {/* Row 2: Type, Quality, Rating, Runtime */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Type</label>
-                <select
-                  value={movieForm.type}
-                  onChange={(e) => setMovieForm({ ...movieForm, type: e.target.value })}
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
+                  <div>
+                    <label className="block text-gray-400 mb-1">Year</label>
+                    <input
+                      type="text"
+                      value={movieForm.year}
+                      onChange={(e) => setMovieForm({ ...movieForm, year: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-gray-400 mb-1">Type</label>
+                    <select
+                      value={movieForm.type}
+                      onChange={(e) => setMovieForm({ ...movieForm, type: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    >
+                      <option value="movie">Movie</option>
+                      <option value="tv">TV Series</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 mb-1">Quality Badge</label>
+                    <input
+                      type="text"
+                      value={movieForm.quality}
+                      onChange={(e) => setMovieForm({ ...movieForm, quality: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 mb-1">IMDb Rating</label>
+                    <input
+                      type="text"
+                      value={movieForm.rating}
+                      onChange={(e) => setMovieForm({ ...movieForm, rating: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1">Genres (Comma separated)</label>
+                  <input
+                    type="text"
+                    value={movieForm.genre}
+                    onChange={(e) => setMovieForm({ ...movieForm, genre: e.target.value })}
+                    className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-400 mb-1">Poster URL</label>
+                    <input
+                      type="text"
+                      value={movieForm.poster}
+                      onChange={(e) => setMovieForm({ ...movieForm, poster: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 mb-1">Backdrop URL</label>
+                    <input
+                      type="text"
+                      value={movieForm.backdrop}
+                      onChange={(e) => setMovieForm({ ...movieForm, backdrop: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-400 mb-1">Pixeldrain 720p URL</label>
+                    <input
+                      type="text"
+                      value={movieForm.pd720}
+                      onChange={(e) => setMovieForm({ ...movieForm, pd720: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 mb-1">Pixeldrain 1080p URL</label>
+                    <input
+                      type="text"
+                      value={movieForm.pd1080}
+                      onChange={(e) => setMovieForm({ ...movieForm, pd1080: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-400 mb-1">Stream Player URL (Server 1)</label>
+                    <input
+                      type="text"
+                      value={movieForm.streamUrl}
+                      onChange={(e) => setMovieForm({ ...movieForm, streamUrl: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 mb-1">Sinhala Subtitle (.SRT) URL</label>
+                    <input
+                      type="text"
+                      value={movieForm.subUrl}
+                      onChange={(e) => setMovieForm({ ...movieForm, subUrl: e.target.value })}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1">Overview Description</label>
+                  <textarea
+                    rows="3"
+                    value={movieForm.description}
+                    onChange={(e) => setMovieForm({ ...movieForm, description: e.target.value })}
+                    className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-red-600"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <option value="movie">Movie</option>
-                  <option value="series">TV Series</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Quality Tag</label>
-                <input
-                  type="text"
-                  value={movieForm.quality}
-                  onChange={(e) => setMovieForm({ ...movieForm, quality: e.target.value })}
-                  placeholder="HD-RIP / WEB-DL"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">IMDb Rating</label>
-                <input
-                  type="text"
-                  value={movieForm.rating}
-                  onChange={(e) => setMovieForm({ ...movieForm, rating: e.target.value })}
-                  placeholder="4.2"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Runtime</label>
-                <input
-                  type="text"
-                  value={movieForm.runtime}
-                  onChange={(e) => setMovieForm({ ...movieForm, runtime: e.target.value })}
-                  placeholder="2h 18m"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
+                  <Save className="w-4 h-4" />
+                  <span>{editingMovieId ? 'UPDATE MOVIE' : 'SAVE MOVIE TO DATABASE'}</span>
+                </button>
+              </form>
             </div>
 
-            {/* Row 3: Release Date, Director, Stars */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Exact Release Date</label>
+            {/* Catalog List Column */}
+            <div className="bg-neutral-900 border border-white/10 rounded-2xl p-4 flex flex-col h-[650px]">
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="text"
-                  value={movieForm.releaseDate}
-                  onChange={(e) => setMovieForm({ ...movieForm, releaseDate: e.target.value })}
-                  placeholder="December 23, 2022"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
+                  value={adminSearch}
+                  onChange={(e) => setAdminSearch(e.target.value)}
+                  placeholder="Catalog search..."
+                  className="w-full bg-black/50 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
 
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Director Name</label>
-                <input
-                  type="text"
-                  value={movieForm.director}
-                  onChange={(e) => setMovieForm({ ...movieForm, director: e.target.value })}
-                  placeholder="Trinadha Rao Nakkina"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 divide-y divide-white/5">
+                {filteredMovies.map(m => (
+                  <div key={m.id} className="pt-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img src={m.poster} alt="" className="w-8 h-12 object-cover rounded shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate">{m.title}</div>
+                        <div className="text-[10px] text-gray-400">{m.year}</div>
+                      </div>
+                    </div>
 
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Starring Cast</label>
-                <input
-                  type="text"
-                  value={movieForm.stars}
-                  onChange={(e) => setMovieForm({ ...movieForm, stars: e.target.value })}
-                  placeholder="Ravi Teja, Sreeleela, Jayaram"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => handleEditMovieClick(m)} className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg">
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDeleteMovie(m.id)} className="p-1.5 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded-lg">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
+          </div>
+        )}
 
-            {/* Row 4: Genres & Subtitle Translator */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Genres (comma separated)</label>
-                <input
-                  type="text"
-                  value={movieForm.genre}
-                  onChange={(e) => setMovieForm({ ...movieForm, genre: e.target.value })}
-                  placeholder="Action, Thriller, Comedy"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Subtitle Translator Credit</label>
-                <input
-                  type="text"
-                  value={movieForm.subBy}
-                  onChange={(e) => setMovieForm({ ...movieForm, subBy: e.target.value })}
-                  placeholder="Cineflix.lk"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
+        {/* Tab 2: Requests Management */}
+        {activeTab === 'requests' && (
+          <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">User Movie Requests</h3>
+
+            <div className="space-y-3">
+              {requestsList.map(r => (
+                <div key={r.key} className="p-4 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-bold text-white">{r.movie}</h4>
+                    <p className="text-xs text-gray-400">By: {r.user} ({r.email}) • {r.votes || 1} Votes</p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {r.status !== 'done' ? (
+                      <button onClick={() => handleMarkRequestDone(r.key)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">
+                        ✓ Mark Added
+                      </button>
+                    ) : (
+                      <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded">
+                        Added
+                      </span>
+                    )}
+                    <button onClick={() => handleDeleteRequest(r.key)} className="p-1.5 bg-red-600/20 text-red-400 rounded-lg">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
+          </div>
+        )}
 
-            {/* Row 5: Poster, Backdrop & Movie Stills */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Poster Image URL (2:3 aspect)</label>
-                <input
-                  type="text"
-                  value={movieForm.poster}
-                  onChange={(e) => setMovieForm({ ...movieForm, poster: e.target.value })}
-                  placeholder="https://..."
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
+        {/* Tab 3: Notification Broadcast */}
+        {activeTab === 'notifs' && (
+          <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4 max-w-xl">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Broadcast Activity Feed Notice</h3>
 
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Backdrop Banner URL</label>
-                <input
-                  type="text"
-                  value={movieForm.backdrop}
-                  onChange={(e) => setMovieForm({ ...movieForm, backdrop: e.target.value })}
-                  placeholder="https://..."
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-400 mb-1 font-bold">Movie Stills Screenshots (comma separated URLs)</label>
-                <input
-                  type="text"
-                  value={movieForm.stills}
-                  onChange={(e) => setMovieForm({ ...movieForm, stills: e.target.value })}
-                  placeholder="https://url1, https://url2"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
-            </div>
-
-            {/* Row 6: Video Streams & Download Mirrors */}
-            <div className="p-4 rounded-xl bg-gray-950 border border-gray-800 space-y-3">
-              <h4 className="font-bold text-red-500 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                <Link2 className="w-3.5 h-3.5" /> STREAM & DOWNLOAD MIRRORS CONFIGURATION
-              </h4>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-400 mb-1">Direct Download Mirror URL (srv2 / mp4 file)</label>
-                  <input
-                    type="text"
-                    value={movieForm.srv2}
-                    onChange={(e) => setMovieForm({ ...movieForm, srv2: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-400 mb-1">Stream Video Player 1 URL (iframe embed)</label>
-                  <input
-                    type="text"
-                    value={movieForm.streamUrl}
-                    onChange={(e) => setMovieForm({ ...movieForm, streamUrl: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-400 mb-1">720p File Size Tag</label>
-                  <input
-                    type="text"
-                    value={movieForm.size720p}
-                    onChange={(e) => setMovieForm({ ...movieForm, size720p: e.target.value })}
-                    placeholder="1.46GB"
-                    className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-400 mb-1">1080p File Size Tag</label>
-                  <input
-                    type="text"
-                    value={movieForm.size1080p}
-                    onChange={(e) => setMovieForm({ ...movieForm, size1080p: e.target.value })}
-                    placeholder="1.85GB"
-                    className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-gray-400 mb-1">Sinhala Subtitle File Link (.srt)</label>
-                  <input
-                    type="text"
-                    value={movieForm.subUrl}
-                    onChange={(e) => setMovieForm({ ...movieForm, subUrl: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Row 7: Plot Synopsis Overview */}
-            <div>
-              <label className="block text-gray-400 mb-1 font-bold">Movie Plot Overview / Synopsis</label>
+            <form onSubmit={handleBroadcastNotif} className="space-y-3">
               <textarea
-                rows={3}
-                value={movieForm.description}
-                onChange={(e) => setMovieForm({ ...movieForm, description: e.target.value })}
-                placeholder="Movie synopsis text..."
-                className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-red-500"
+                rows="3"
+                value={notifMsg}
+                onChange={(e) => setNotifMsg(e.target.value)}
+                placeholder="සියලුම පරිශීලකයින්ට පෙන්වීමට අවශ්‍ය නිවේදනය..."
+                className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-red-600"
+                required
               />
-            </div>
 
-            <button
-              type="submit"
-              className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-xl shadow-red-600/40 transition-all cursor-pointer"
-            >
-              {editingMovieId ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              <span>{editingMovieId ? 'Save Movie Changes' : 'Publish New Movie'}</span>
-            </button>
+              <button type="submit" className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg">
+                Broadcast Notice
+              </button>
+            </form>
+          </div>
+        )}
 
-          </form>
-        </div>
-
-        {/* Section 3: Movie Database Library */}
-        <div className="p-6 rounded-2xl bg-[#111111] border border-gray-800 shadow-xl space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-gray-800 pb-4">
-            <div>
-              <h3 className="text-base font-bold text-white uppercase font-['Bebas_Neue'] tracking-wider text-lg">
-                MOVIE LIBRARY ({movies.length} TOTAL TITLES)
-              </h3>
-              <p className="text-xs text-gray-400">Click "Edit Links" on any movie to modify stream player or download URLs</p>
-            </div>
-
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Filter movies..."
-                value={adminSearch}
-                onChange={(e) => setAdminSearch(e.target.value)}
-                className="w-full bg-gray-950 border border-gray-800 rounded-full pl-8 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-red-500"
-              />
+        {/* Tab 4: Analytics */}
+        {activeTab === 'analytics' && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-6 bg-neutral-900 border border-white/10 rounded-2xl text-center space-y-2">
+              <div className="text-3xl font-black text-red-500">{analytics.totalVisitors || 0}</div>
+              <div className="text-xs font-bold text-gray-400 uppercase">Total Site Visitors</div>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredMovies.map((movie) => (
-              <div
-                key={movie.id}
-                className="p-3 rounded-xl bg-gray-950 border border-gray-800/80 flex items-center space-x-3 hover:border-gray-700 transition-all"
-              >
-                <img
-                  src={movie.poster || movie.backdrop}
-                  alt={movie.title}
-                  className="w-12 h-16 object-cover rounded-lg bg-gray-900 border border-gray-800 flex-shrink-0"
-                />
-
-                <div className="flex-1 min-width-0 space-y-1">
-                  <h4 className="text-xs font-bold text-white truncate">{movie.title}</h4>
-                  <div className="flex items-center space-x-2 text-[10px] text-gray-400">
-                    <span>{movie.year}</span>
-                    <span>•</span>
-                    <span className="text-red-400 font-bold uppercase">{movie.quality || 'HD'}</span>
-                  </div>
-
-                  <div className="flex items-center space-x-2 pt-1">
-                    <button
-                      onClick={() => handleEditMovieClick(movie)}
-                      className="px-2.5 py-1 rounded bg-gray-900 hover:bg-red-600 text-gray-200 hover:text-white text-[10px] font-bold border border-gray-800 flex items-center space-x-1 transition-all"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>Edit Links</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleDeleteMovie(movie.id)}
-                      className="p-1 rounded bg-red-950/60 hover:bg-red-600 text-red-400 hover:text-white text-[10px] border border-red-500/30 transition-all"
-                      title="Delete Movie"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+        )}
       </div>
-
     </div>
   );
 }
