@@ -509,6 +509,29 @@ export default function MovieDetailModal({ movie, onClose, onOpenWhatsAppDl, onO
           </div>
         )}
 
+        {/* 11.5 DEDICATED DIRECT WHATSAPP PHONE DELIVERY BUTTON CARD MATCHING USER SCREENSHOT LOCATION */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#111111] to-[#111111] border border-emerald-500/40 shadow-xl space-y-3 z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                <MessageCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-emerald-400">Direct WhatsApp Phone Delivery</h4>
+                <p className="text-[10px] text-gray-400">චිත්‍රපටය ඔබේ WhatsApp අංකයටම කෙලින්ම ගෙන්වා ගන්න</p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onOpenWhatsAppDl(movie, '720p')}
+            className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/30 transition-all cursor-pointer uppercase tracking-wider font-['Poppins']"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span>📱 Send Movie to My WhatsApp Number</span>
+          </button>
+        </div>
+
         {/* 12. SUBTITLES SECTION (SHOW FOR MOVIES ONLY - HIDE FOR TV SERIES) */}
         {!isTvSeries && movie.subUrl && (
           <div className="space-y-3 pt-2 z-10">
