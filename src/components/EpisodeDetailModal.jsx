@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText, Play, Star, Clock, Calendar, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText, Play, Star, Clock, Calendar, CheckCircle2, MessageCircle } from 'lucide-react';
 import CustomVideoPlayer from './CustomVideoPlayer';
 import { tmdbFetch, TMDB_IMG } from '../services/tmdb';
 
-export default function EpisodeDetailModal({ isOpen, onClose, movie, episode, seasonName, onSelectEpisode, onOpenPixeldrain, onToast }) {
+export default function EpisodeDetailModal({ 
+  isOpen, 
+  onClose, 
+  movie, 
+  episode, 
+  seasonName, 
+  onSelectEpisode, 
+  onOpenPixeldrain, 
+  onOpenWhatsAppDl, 
+  onOpenMovieDl, 
+  onToast 
+}) {
   const [stills, setStills] = useState([]);
   const [activeServer, setActiveServer] = useState('srv1'); // 'srv1' | 'srv2' | 'srv3'
 
@@ -46,28 +57,28 @@ export default function EpisodeDetailModal({ isOpen, onClose, movie, episode, se
 
   return (
     <div className="fixed inset-0 z-[90] bg-neutral-950 text-white overflow-y-auto animate-fade-in p-4 sm:p-8">
+      {/* Top Header */}
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* Top Header Nav */}
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <button onClick={onClose} className="flex items-center gap-2 text-xs font-extrabold text-gray-400 hover:text-white transition">
-            <ArrowLeft className="w-4 h-4" /> BACK TO {movie.title?.toUpperCase()}
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-white/10 rounded-xl hover:bg-white/10 transition text-xs font-bold"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to {movie.title}
           </button>
 
-          {/* Prev / Next Buttons */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => prevEp && onSelectEpisode(prevEp, prevEp._seasonName)}
               disabled={!prevEp}
+              onClick={() => prevEp && onSelectEpisode(prevEp, prevEp._seasonName)}
               className="p-2 bg-neutral-900 border border-white/10 rounded-xl disabled:opacity-30 hover:bg-white/10 transition"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-xs font-bold text-gray-300">
-              E{episode.ep}: {episode.title}
-            </span>
+            <span className="text-xs font-bold text-gray-400">Episode {episode.ep}</span>
             <button
-              onClick={() => nextEp && onSelectEpisode(nextEp, nextEp._seasonName)}
               disabled={!nextEp}
+              onClick={() => nextEp && onSelectEpisode(nextEp, nextEp._seasonName)}
               className="p-2 bg-neutral-900 border border-white/10 rounded-xl disabled:opacity-30 hover:bg-white/10 transition"
             >
               <ChevronRight className="w-4 h-4" />
@@ -136,10 +147,56 @@ export default function EpisodeDetailModal({ isOpen, onClose, movie, episode, se
             <Download className="w-4 h-4 text-red-600" /> Episode Downloads
           </h3>
 
+          {/* WhatsApp Direct Bot Delivery Button */}
+          {onOpenWhatsAppDl && (
+            <button
+              onClick={() => onOpenWhatsAppDl({
+                ...movie,
+                title: `${movie.title} - ${seasonName} Episode ${episode.ep}`
+              }, '720p')}
+              className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/30 transition cursor-pointer uppercase tracking-wider"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>📱 Send {seasonName} Episode {episode.ep} to My WhatsApp</span>
+            </button>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Direct Download Server 1 */}
+            {(episode.srv1 || episode.url) && (
+              <a
+                href={(episode.srv1 || episode.url).replace('/api/nexa/stream/', '/api/nexa/download/')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-3 bg-red-950/40 hover:bg-red-900/40 border border-red-500/30 rounded-xl text-left transition flex items-center justify-between cursor-pointer"
+              >
+                <div>
+                  <div className="text-xs font-bold text-white">Direct Download - 720p HD</div>
+                  <div className="text-[10px] text-gray-400">Server 1 Direct Stream/File</div>
+                </div>
+                <Download className="w-4 h-4 text-red-500" />
+              </a>
+            )}
+
+            {/* Direct Download Server 2 */}
+            {episode.srv2 && (
+              <a
+                href={episode.srv2.replace('/api/nexa/stream/', '/api/nexa/download/')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-3 bg-red-950/40 hover:bg-red-900/40 border border-red-500/30 rounded-xl text-left transition flex items-center justify-between cursor-pointer"
+              >
+                <div>
+                  <div className="text-xs font-bold text-white">Direct Download - 1080p Full HD</div>
+                  <div className="text-[10px] text-gray-400">Server 2 Direct Stream/File</div>
+                </div>
+                <Download className="w-4 h-4 text-red-500" />
+              </a>
+            )}
+
             {episode.pd720 && (
               <button
-                onClick={() => onOpenPixeldrain(episode.pd720)}
+                onClick={() => onOpenPixeldrain && onOpenPixeldrain(episode.pd720)}
                 className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left transition flex items-center justify-between cursor-pointer"
               >
                 <div>
@@ -152,7 +209,7 @@ export default function EpisodeDetailModal({ isOpen, onClose, movie, episode, se
 
             {episode.pd1080 && (
               <button
-                onClick={() => onOpenPixeldrain(episode.pd1080)}
+                onClick={() => onOpenPixeldrain && onOpenPixeldrain(episode.pd1080)}
                 className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-left transition flex items-center justify-between cursor-pointer"
               >
                 <div>

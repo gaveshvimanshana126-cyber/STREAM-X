@@ -383,38 +383,105 @@ async function processFirebaseBotQueue() {
         return dRes.includes(cleanQuality) || cleanQuality.includes(dRes);
       }) || targetMovie?.downloads?.[0];
 
-      const downloadUrl = targetDownload?.srv1 || targetDownload?.srv2 || targetDownload?.url || targetMovie?.subUrl;
-      const fileSize = targetDownload?.size || '216 MB';
+      const isTvSeries = targetMovie?.type === 'tv' || (targetMovie?.seasons && targetMovie?.seasons.length > 0);
+      const episodesList = [];
 
-      // Step 2: Deliver Document File (.mp4/.mkv) with real blue WhatsApp mention in caption
-      let documentSent = false;
-      const captionText = `🎬 *${movieTitle} ${movieYear}*\n\n👤 *Requested by:* ${userTag}\n📦 *Size:* ${fileSize}\n⚡ *Quality:* ${qualityText}\n\n🌐 *Downloaded via:* cineflix-lk.vercel.app\n© *MADE BY CINEFLIX*`;
+      if (isTvSeries && targetMovie?.seasons) {
+        targetMovie.seasons.forEach((season, sIdx) => {
+          (season.episodes || []).forEach((ep, eIdx) => {
+            episodesList.push({
+              seasonNum: season.season || (sIdx + 1),
+              epNum: ep.ep || ep.episodeNumber || (eIdx + 1),
+              title: ep.title || `Episode ${ep.ep || (eIdx + 1)}`,
+              srv1: ep.srv1 || ep.url || ep.srv2 || targetDownload?.srv1 || targetMovie?.downloads?.[0]?.srv1,
+              srv2: ep.srv2 || ep.srv1 || targetDownload?.srv2,
+              pd720: ep.pd720,
+              pd1080: ep.pd1080,
+              subUrl: ep.subUrl || targetMovie.subUrl
+            });
+          });
+        });
+      }
 
-      if (downloadUrl && downloadUrl !== '#' && downloadUrl.startsWith('http')) {
-        const isMkv = downloadUrl.toLowerCase().includes('.mkv') || downloadUrl.endsWith('.mkv');
-        const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.${isMkv ? 'mkv' : 'mp4'}`;
+      // If it's a TV Series with episodes, deliver ALL episodes sequentially!
+      if (isTvSeries && episodesList.length > 0) {
+        console.log(`📺 TV Series detected [${movieTitle}] with ${episodesList.length} episodes! Delivering all episodes to ${targetSendJid}...`);
+        
+        const startTvNotice = `📺 *${movieTitle} ${movieYear} (TV Series)*\n👤 *Requested by:* ${userTag}\n📦 *Total Episodes:* ${episodesList.length} Episodes\n\nසියලුම Episodes ඔබගේ WhatsApp වෙත උඩුගත කිරීම ආරම්භ විය. 🚀`;
+        await sock.sendMessage(targetSendJid, { text: startTvNotice, mentions: [userJid] }).catch(() => {});
+        await delay(2000);
 
-        try {
-          console.log(`📡 Sending document file [${fileName}] to ${targetSendJid} from: ${downloadUrl}`);
-          await sock.sendMessage(
-            targetSendJid,
-            {
-              document: { url: downloadUrl },
-              mimetype: isMkv ? 'video/x-matroska' : 'video/mp4',
-              fileName: fileName,
-              caption: captionText,
-              mentions: [userJid]
+        for (let epIdx = 0; epIdx < episodesList.length; epIdx++) {
+          const ep = episodesList[epIdx];
+          const epTitle = `${movieTitle} - S${ep.seasonNum}E${ep.epNum} (${ep.title})`;
+          const epUrl = ep.srv1 || ep.srv2 || targetMovie?.subUrl;
+          const fileSize = targetDownload?.size || '250 MB';
+
+          let epDocSent = false;
+          const epCaption = `📺 *${epTitle}*\n👤 *Requested by:* ${userTag}\n📦 *Size:* ${fileSize}\n⚡ *Episode:* ${epIdx + 1} of ${episodesList.length}\n\n🌐 *Downloaded via:* cineflix-lk.vercel.app\n© *MADE BY CINEFLIX*`;
+
+          if (epUrl && epUrl !== '#' && epUrl.startsWith('http')) {
+            const isMkv = epUrl.toLowerCase().includes('.mkv') || epUrl.endsWith('.mkv');
+            const fileName = `${epTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.${isMkv ? 'mkv' : 'mp4'}`;
+
+            try {
+              console.log(`📡 Sending TV Episode [${epIdx + 1}/${episodesList.length}] ${fileName} to ${targetSendJid}...`);
+              await sock.sendMessage(
+                targetSendJid,
+                {
+                  document: { url: epUrl },
+                  mimetype: isMkv ? 'video/x-matroska' : 'video/mp4',
+                  fileName: fileName,
+                  caption: epCaption,
+                  mentions: [userJid]
+                }
+              );
+              epDocSent = true;
+            } catch (epErr) {
+              console.error(`⚠️ Failed primary upload for TV Episode ${fileName}:`, epErr.message);
+              try {
+                await delay(2000);
+                await sock.sendMessage(
+                  userJid,
+                  {
+                    document: { url: epUrl },
+                    mimetype: isMkv ? 'video/x-matroska' : 'video/mp4',
+                    fileName: fileName,
+                    caption: epCaption,
+                    mentions: [userJid]
+                  }
+                );
+                epDocSent = true;
+              } catch (rErr) {
+                console.error(`❌ Retry failed for TV Episode ${fileName}:`, rErr.message);
+              }
             }
-          );
-          documentSent = true;
-          console.log(`✅ Document file [${fileName}] delivered successfully to ${targetSendJid}`);
-        } catch (docErr) {
-          console.error('⚠️ Primary document upload failed:', docErr.message);
-          // Fallback attempt to User DM if Group sending failed
+          }
+
+          if (!epDocSent) {
+            const linkNotice = `📺 *${epTitle}*\n👤 *Requested by:* ${userTag}\n📦 *Episode:* ${epIdx + 1} / ${episodesList.length}\n\n📥 *Direct Episode Download Link:*\n🔗 ${epUrl || 'https://t.me/Cineflix_cloud_Bot'}\n\n🍿 *Watch Online:* ${process.env.WEBSITE_URL || config.websiteUrl}`;
+            await sock.sendMessage(targetSendJid, { text: linkNotice, mentions: [userJid] });
+          }
+
+          await delay(2500); // 2.5s delay between episodes
+        }
+
+      } else {
+        // Single Movie Delivery
+        const downloadUrl = targetDownload?.srv1 || targetDownload?.srv2 || targetDownload?.url || targetMovie?.subUrl;
+        const fileSize = targetDownload?.size || '216 MB';
+
+        let documentSent = false;
+        const captionText = `🎬 *${movieTitle} ${movieYear}*\n\n👤 *Requested by:* ${userTag}\n📦 *Size:* ${fileSize}\n⚡ *Quality:* ${qualityText}\n\n🌐 *Downloaded via:* cineflix-lk.vercel.app\n© *MADE BY CINEFLIX*`;
+
+        if (downloadUrl && downloadUrl !== '#' && downloadUrl.startsWith('http')) {
+          const isMkv = downloadUrl.toLowerCase().includes('.mkv') || downloadUrl.endsWith('.mkv');
+          const fileName = `${movieTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${qualityText}.${isMkv ? 'mkv' : 'mp4'}`;
+
           try {
-            await delay(2000);
+            console.log(`📡 Sending document file [${fileName}] to ${targetSendJid} from: ${downloadUrl}`);
             await sock.sendMessage(
-              userJid,
+              targetSendJid,
               {
                 document: { url: downloadUrl },
                 mimetype: isMkv ? 'video/x-matroska' : 'video/mp4',
@@ -424,16 +491,33 @@ async function processFirebaseBotQueue() {
               }
             );
             documentSent = true;
-            console.log(`✅ Document file delivered on DM fallback to ${userJid}`);
-          } catch (retryErr) {
-            console.error('❌ Retry document upload failed:', retryErr.message);
+            console.log(`✅ Document file [${fileName}] delivered successfully to ${targetSendJid}`);
+          } catch (docErr) {
+            console.error('⚠️ Primary document upload failed:', docErr.message);
+            try {
+              await delay(2000);
+              await sock.sendMessage(
+                userJid,
+                {
+                  document: { url: downloadUrl },
+                  mimetype: isMkv ? 'video/x-matroska' : 'video/mp4',
+                  fileName: fileName,
+                  caption: captionText,
+                  mentions: [userJid]
+                }
+              );
+              documentSent = true;
+              console.log(`✅ Document file delivered on DM fallback to ${userJid}`);
+            } catch (retryErr) {
+              console.error('❌ Retry document upload failed:', retryErr.message);
+            }
           }
         }
-      }
 
-      if (!documentSent) {
-        const linkNotice = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n👤 *Requested by:* ${userTag}\n📦 *Size:* ${fileSize}\n🗣 *Subtitle:* Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n\n📥 *Direct High-Speed Server Download Link:*\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🍿 *Watch Online & Web Download:* ${process.env.WEBSITE_URL || config.websiteUrl}`;
-        await sock.sendMessage(targetSendJid, { text: linkNotice, mentions: [userJid] });
+        if (!documentSent) {
+          const linkNotice = `🎬 *${movieTitle} ${movieYear} (${qualityText})*\n👤 *Requested by:* ${userTag}\n📦 *Size:* ${fileSize}\n🗣 *Subtitle:* Cineflix Sinhala Subtitles (${process.env.WEBSITE_URL || config.websiteUrl})\n\n📥 *Direct High-Speed Server Download Link:*\n🔗 ${downloadUrl || targetDownload?.tgLink || 'https://t.me/Cineflix_cloud_Bot'}\n\n🍿 *Watch Online & Web Download:* ${process.env.WEBSITE_URL || config.websiteUrl}`;
+          await sock.sendMessage(targetSendJid, { text: linkNotice, mentions: [userJid] });
+        }
       }
       await delay(1500);
 
