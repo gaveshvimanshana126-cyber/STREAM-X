@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MovieManiaLKSub | Sinhala Subtitles for Movies and TV Series</title>
+<meta name="description" content="Download Sinhala subtitles (.srt) for the latest movies and TV series.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=DM+Sans:wght@400;600&family=Noto+Sans+Sinhala:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--panel:#151515;--line:#2c2c2c;--text:#fff;--mute:#aaa;--red:#d9141f;--red2:#ff3b45;
+--disp:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;--body:"DM Sans","Noto Sans Sinhala",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font:400 1rem/1.6 var(--body);min-height:100vh}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--red2);outline-offset:3px}
+.wrap{width:min(1100px,100% - 2rem);margin-inline:auto}
+header{position:sticky;top:0;z-index:10;background:rgba(0,0,0,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.logo{font:800 1.6rem/1 var(--disp);letter-spacing:.02em}
+.logo i{font-style:normal;color:var(--red2)}
+nav{display:flex;gap:1.5rem}
+nav a{color:var(--mute)}nav a:hover{color:var(--text)}
+#menuBtn{display:none;background:none;border:1px solid var(--line);color:var(--text);font-size:1.3rem;width:44px;height:44px;border-radius:6px;cursor:pointer}
+@media(max-width:700px){#menuBtn{display:block}
+nav{display:none;position:absolute;top:60px;left:0;right:0;flex-direction:column;gap:0;background:#000;border-bottom:1px solid var(--line)}
+nav.open{display:flex}nav a{padding:.9rem 1rem;border-top:1px solid var(--line)}}
+.hdr-r{display:flex;align-items:center;gap:.4rem}
+.sBtn{background:none;border:0;color:var(--text);width:44px;height:44px;cursor:pointer;display:grid;place-items:center;border-radius:6px}
+.sBtn:hover{color:var(--red2)}
+.sBtn svg{width:24px;height:24px}
+.spanel{display:none;border-top:1px solid var(--line);background:#000;padding:.7rem 0}
+.spanel.open{display:block}
+.search{display:flex;border:1px solid #444;border-radius:8px;background:#0d0d0d;overflow:hidden}
+.search input{flex:1;min-width:0;background:none;border:0;color:var(--text);font:inherit;padding:.8rem 1rem}
+.search input:focus{outline:none}
+.search:focus-within{border-color:var(--red2)}
+.search button{background:var(--red);border:0;color:#fff;font:600 1rem var(--body);padding:0 1.3rem;cursor:pointer}
+.search button:hover{background:var(--red2)}
+.banner{padding-top:1.2rem}
+.slides{display:flex;gap:1rem;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.slides::-webkit-scrollbar{display:none}
+.slide{flex:0 0 100%;scroll-snap-align:center;display:flex;align-items:center;justify-content:space-between;gap:1rem;
+background:linear-gradient(120deg,hsl(var(--h) 55% 17%),#0e0e0e 72%);border-left:5px solid var(--red);border-radius:12px;padding:.9rem 1.1rem}
+.slide .txt{flex:1;min-width:0}
+.st{display:block;font:800 clamp(1.15rem,3.8vw,1.7rem)/1.15 var(--disp);letter-spacing:.01em}
+.st:hover{color:var(--red2)}
+.tag{display:inline-block;background:#262626;border-radius:6px;padding:0 .55rem;color:var(--mute);margin:.5rem .4rem .65rem 0;font-size:.8rem}
+.acts{display:flex;gap:.6rem;flex-wrap:wrap}
+.btn.ghost{background:#262626;border:1px solid #444}
+.btn.ghost:hover{background:#333}
+.slide .poster{width:min(22%,110px);aspect-ratio:2/3;flex:none;border-radius:10px;padding:.5rem;display:flex;align-items:flex-end;border:1px solid var(--line);
+background:linear-gradient(165deg,hsl(var(--h) 65% 32%),#000 88%);box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.slide .poster b{font:800 .8rem/1 var(--disp)}
+.dots{display:flex;justify-content:center;gap:.5rem;margin-top:.9rem}
+.dots button{width:10px;height:10px;border-radius:99px;border:0;background:#555;cursor:pointer;padding:0;transition:width .25s,background .25s}
+.dots button.on{width:28px;background:var(--red2)}
+.slide .btn{padding:.5rem 1rem;font-size:.9rem}
+.banner{padding-top:.8rem}
+.dots{margin-top:.6rem}
+.vlist{display:flex;flex-direction:column;gap:.8rem}
+.vitem{display:flex;gap:1rem;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.7rem;transition:border-color .2s}
+.vitem:hover{border-color:var(--red2)}
+.vitem .poster{width:76px;flex:none;aspect-ratio:2/3;border-radius:6px;padding:.4rem;display:flex;align-items:flex-end;border:1px solid var(--line);background:linear-gradient(165deg,hsl(var(--h) 65% 30%),#000 88%)}
+.vitem .poster b{font:800 .7rem/1 var(--disp)}
+.vitem h3{font:600 1.05rem/1.3 var(--body)}
+.vitem .meta{margin:.1rem 0 .3rem;font-size:.9rem}
+.vitem p{color:var(--mute);font-size:.9rem;line-height:1.4}
+/* ── Trending horizontal scroll ── */
+.trend-wrap{display:flex;gap:1rem;overflow-x:auto;scroll-snap-type:x mandatory;padding:.1rem .1rem .5rem;scrollbar-width:none}
+.trend-wrap::-webkit-scrollbar{display:none}
+.trend-card{flex:0 0 72%;scroll-snap-align:start;display:block}
+@media(min-width:560px){.trend-card{flex-basis:46%}}
+@media(min-width:860px){.trend-card{flex-basis:31%}}
+@media(min-width:1100px){.trend-card{flex-basis:23%}}
+.trend-card .thumb{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;display:flex;align-items:flex-end;padding:.9rem;border:1px solid var(--line);background:linear-gradient(165deg,hsl(var(--h) 60% 30%),#000 85%);transition:border-color .2s,transform .2s}
+.trend-card:hover .thumb{border-color:var(--red2);transform:translateY(-3px)}
+.trend-card .thumb b{font:800 1.3rem/1.15 var(--disp);color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.trend-card h3{margin-top:.65rem;font:600 1.02rem/1.3 var(--body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.trend-meta{display:flex;gap:.5rem;color:var(--mute);font-size:.85rem;margin-top:.25rem;flex-wrap:wrap}
+/* ── Subwave style backdrop ── */
+.back-row{padding:1rem 0 .7rem}
+.back-link{display:inline-flex;align-items:center;gap:.4rem;color:var(--mute);font-size:.9rem;font-weight:600;transition:color .2s,transform .2s}
+.back-link:hover{color:var(--text);transform:translateX(-2px)}
+.bd{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  max-height:420px;
+  overflow:hidden;
+  border-radius:16px;
+  box-shadow:0 18px 44px rgba(0,0,0,.55);
+  background:radial-gradient(ellipse at 60% 40%,hsl(var(--h) 60% 25%),#050505);
+}
+.bd::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,0) 35%,rgba(0,0,0,.75) 100%);
+  pointer-events:none;
+}
+.bd-img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center top;
+  display:block;
+}
+.bd-placeholder{
+  width:100%;
+  height:100%;
+  background:radial-gradient(ellipse at 60% 40%,hsl(var(--h) 65% 28%),#050505);
+}
+/* Title section below backdrop */
+.hd{
+  padding:1.2rem 0 .4rem;
+  display:flex;
+  flex-direction:column;
+  gap:.6rem;
+}
+.hd h1{
+  font:800 clamp(1.5rem,5vw,2.4rem)/1.15 var(--disp);
+  color:#fff;
+  margin:0;
+}
+.tagline{color:var(--mute);font-style:italic;margin:.1rem 0 .3rem;font-size:.95rem}
+.badges{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+.badge{background:#222;border-radius:6px;padding:.2rem .65rem;font-size:.82rem;color:var(--mute)}
+.badge.rate{background:var(--red);color:#fff;font-weight:700}
+.ov{max-width:70ch}
+.dbox{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--red);border-radius:12px;padding:.4rem 1.1rem 1rem}
+.dbox>p{color:var(--mute);margin:.8rem 0 .2rem}
+.dfile{display:flex;align-items:center;justify-content:space-between;gap:.8rem 1rem;flex-wrap:wrap;padding:.9rem 0}
+.dfile+.dfile{border-top:1px solid var(--line)}
+.dfile .nm{font-weight:600;word-break:break-all}
+.dfile small{display:flex;flex-wrap:wrap;gap:.1rem .9rem;color:var(--mute);font-size:.88rem}
+.dfile .btn{padding:.6rem 1.2rem;font-size:.95rem;flex:none}
+.dbox details{border-top:1px solid var(--line);padding-top:.8rem;color:var(--mute)}
+.dbox summary{cursor:pointer;color:var(--text)}
+.dbox ol{padding-left:1.2rem;margin-top:.5rem}
+.cast{display:flex;gap:.9rem;overflow-x:auto;padding-bottom:.5rem;scrollbar-width:thin}
+
+/* ── Subtitle Credits Section ── */
+.sub-credit-section{
+  border-top:1px solid rgba(255,255,255,.08);
+  margin-top:.5rem;
+}
+.sub-credit-wrap{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:.7rem;
+  padding:1.6rem 1rem 1.8rem;
+  text-align:center;
+}
+.sub-credit-avatar{
+  width:72px;
+  height:72px;
+  border-radius:50%;
+  object-fit:cover;
+  border:2.5px solid rgba(59,158,255,.55);
+  box-shadow:0 0 0 4px rgba(59,158,255,.12), 0 4px 18px rgba(0,0,0,.45);
+  background:#1a2a3a;
+  display:block;
+}
+.sub-credit-avatar-placeholder{
+  width:72px;
+  height:72px;
+  border-radius:50%;
+  border:2.5px solid rgba(59,158,255,.45);
+  box-shadow:0 0 0 4px rgba(59,158,255,.10);
+  background:linear-gradient(135deg,#1a2a4a,#0d1a2e);
+  display:grid;
+  place-items:center;
+  font-size:1.9rem;
+}
+.sub-credit-title{
+  font-family:'Noto Sans Sinhala',system-ui,sans-serif;
+  font-size:1.15rem;
+  font-weight:700;
+  color:#3b9eff;
+  letter-spacing:.02em;
+  line-height:1.3;
+}
+.sub-credit-name{
+  font-size:.95rem;
+  font-weight:600;
+  color:rgba(255,255,255,.85);
+  letter-spacing:.03em;
+  background:rgba(59,158,255,.10);
+  border:1px solid rgba(59,158,255,.25);
+  border-radius:100px;
+  padding:.35rem 1.1rem;
+  display:inline-block;
+}
+.ci{flex:0 0 96px;text-align:center;font-size:.85rem;line-height:1.3}
+.ci .av{width:72px;height:72px;border-radius:50%;margin:0 auto .45rem;display:grid;place-items:center;background:hsl(var(--h) 45% 24%);border:1px solid var(--line);font:800 1.4rem var(--disp)}
+.ci span{display:block;color:var(--mute)}
+@media(max-width:480px){.hd{margin-top:0;gap:.8rem}}
+section.row{padding-block:2rem}
+h2{font:800 1.9rem/1 var(--disp);letter-spacing:.02em;margin-bottom:1rem;display:flex;align-items:center;gap:.6rem}
+h2::before{content:"";width:5px;height:1.5rem;background:var(--red)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1rem}
+.card .poster{position:relative;aspect-ratio:2/3;border-radius:8px;overflow:hidden;display:flex;align-items:flex-end;padding:.7rem;
+background:linear-gradient(165deg,hsl(var(--h) 65% 30%),#000 88%);border:1px solid var(--line);transition:border-color .2s,transform .2s}
+.card:hover .poster{border-color:var(--red2);transform:translateY(-3px)}
+.poster b{font:800 1.35rem/1 var(--disp)}
+.rt{position:absolute;top:.5rem;right:.5rem;background:rgba(0,0,0,.75);border-radius:4px;padding:.1rem .45rem;font-size:.8rem;font-weight:600}
+.card p{margin-top:.5rem;font-weight:600;line-height:1.3}
+.card small{display:flex;gap:.6rem;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem}
+.chip{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:.45rem 1rem;border-radius:99px;font:inherit;cursor:pointer}
+.chip:hover,.chip.on{background:var(--red);border-color:var(--red)}
+.empty{color:var(--mute);padding:1rem 0}
+.detail{display:grid;gap:1.5rem;padding-block:2rem}
+@media(min-width:700px){.detail{grid-template-columns:260px 1fr;gap:2.5rem}}
+.detail .poster{aspect-ratio:2/3;border-radius:10px;padding:1rem;display:flex;align-items:flex-end;border:1px solid var(--line);background:linear-gradient(165deg,hsl(var(--h) 65% 30%),#000 88%)}
+.detail h1{font-size:clamp(2.4rem,7vw,4rem);max-width:none;margin-bottom:.5rem}
+.meta{display:flex;flex-wrap:wrap;gap:.5rem 1.2rem;color:var(--mute);margin-bottom:1rem}
+.meta strong{color:var(--text)}
+.info{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1rem 1.2rem;margin:1.2rem 0}
+.info dl{display:grid;grid-template-columns:auto 1fr;gap:.4rem 1.5rem}
+.info dt{color:var(--mute)}
+.btn{display:inline-block;background:var(--red);color:#fff;font:600 1.05rem var(--body);padding:.9rem 1.6rem;border-radius:8px;border:0;cursor:pointer}
+.btn:hover{background:var(--red2)}
+.release-line{color:var(--mute);font-size:.92rem;line-height:1.7;margin:.4rem 0 1.3rem;word-break:break-word;user-select:text}
+.dl-big-btn{display:flex;align-items:center;justify-content:center;gap:.6rem;width:100%;background:var(--red);color:#fff;font:700 1.1rem var(--body);padding:1.05rem 1.5rem;border-radius:14px;border:0;cursor:pointer;text-align:center;box-shadow:0 10px 26px rgba(217,20,31,.3)}
+.dl-big-btn:hover{background:var(--red2)}
+.dl-big-btn svg{width:20px;height:20px;flex:none}
+.dl-count{text-align:center;color:var(--mute);font-size:.88rem;margin-top:.7rem}
+
+/* ── Comments ── */
+.comments-section{padding-top:1.6rem}
+.comment-form{display:flex;gap:.6rem;margin-bottom:1.4rem}
+.comment-input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--text);font:inherit;padding:.8rem 1rem}
+.comment-input::placeholder{color:#777}
+.comment-input:focus{outline:none;border-color:var(--red2)}
+.comment-submit{background:var(--red);border:0;color:#fff;font:700 .95rem var(--body);padding:0 1.4rem;border-radius:10px;cursor:pointer;flex:none}
+.comment-submit:hover{background:var(--red2)}
+.comment-count{color:var(--mute);font-weight:400;font-size:1rem}
+.comment-list{display:flex;flex-direction:column;gap:.9rem}
+.comment-item{display:flex;gap:.8rem;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:.95rem 1.05rem;transition:border-color .2s}
+.comment-item:hover{border-color:#3a3a3a}
+.comment-avatar{width:42px;height:42px;border-radius:50%;flex:none;display:grid;place-items:center;background:linear-gradient(135deg,hsl(var(--h) 55% 32%),#000);font:800 1rem var(--disp);color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.06)}
+.comment-body{flex:1;min-width:0}
+.comment-head{display:flex;align-items:center;gap:.55rem;margin-bottom:.25rem;flex-wrap:wrap}
+.comment-name{font-weight:700;font-size:.92rem}
+.comment-time{color:var(--mute);font-size:.78rem}
+.comment-text{color:#dcdcdc;font-size:.92rem;line-height:1.55;word-break:break-word}
+.comment-empty{color:var(--mute);padding:1rem;text-align:center;background:var(--panel);border:1px dashed var(--line);border-radius:14px;font-size:.92rem}
+.back{display:inline-block;color:var(--mute);margin-top:1.5rem}.back:hover{color:var(--text)}
+ol.steps{padding-left:1.3rem;max-width:60ch}ol.steps li{margin-bottom:.4rem}
+.ok{color:#6fdc8c}
+footer{border-top:1px solid var(--line);margin-top:3rem;padding-block:1.5rem;color:var(--mute)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;justify-content:space-between}
+footer nav{display:flex;position:static;flex-direction:row;background:none;border:0;gap:1.2rem}
+footer nav a{padding:0;border:0}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <a class="logo" href="#/">MovieMania<i>LK</i>Sub</a>
+    <nav id="nav">
+      <a href="#/">Home</a>
+      <a href="#/section/latest">Latest</a>
+      <a href="#/section/series">TV series</a>
+    </nav>
+    <div class="hdr-r">
+      <button class="sBtn" id="sBtn" aria-label="Search" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></button>
+      <button id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
+    </div>
+  </div>
+  <div class="spanel" id="sp"><div class="wrap">
+    <form class="search" id="sf" role="search">
+      <input id="q" type="search" placeholder="Search movies and series" aria-label="Search movies and series" autocomplete="off">
+      <button type="submit">Search</button>
+    </form>
+  </div></div>
+</header>
+
+<main id="app"></main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 MovieManiaLKSub</span>
+    <nav><a href="#/about">About</a><a href="#/contact">Contact</a><a href="#/privacy">Privacy</a></nav>
+  </div>
+</footer>
+
+<script>
+/* ===== Sample data: replace with your own titles, posters and subtitle files ===== */
+// Subtitle translator profile pictures
+// key = subBy name, value = photo URL
+const SUB_PICS = {
+  'gaveshvimanshana': 'https://i.ibb.co/ynN2TZSH/0000000069f481f4920da79c28607b62.jpg',
+  // Add more translators here:
+  // 'othername': 'https://...',
+};
+
+/* ===== Comments (demo, in-memory): swap for Firebase later ===== */
+const esc=s=>(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const COMMENTS={};
+function seedComments(id){
+  if(COMMENTS[id])return COMMENTS[id];
+  COMMENTS[id]=[
+    {name:'Nimal Perera',text:'Subtitle eka godak hodai, thank you!',time:'2 days ago'},
+    {name:'Chamodi K.',text:'Timing eka perfect, 720p release ekata gelapenawa.',time:'5 days ago'},
+  ];
+  return COMMENTS[id];
+}
+const commentItem=c=>`<div class="comment-item">
+  <div class="comment-avatar">${esc((c.name||'?').trim().charAt(0).toUpperCase())}</div>
+  <div class="comment-body">
+    <div class="comment-head"><span class="comment-name">${esc(c.name)}</span><span class="comment-time">${esc(c.time)}</span></div>
+    <div class="comment-text">${esc(c.text)}</div>
+  </div>
+</div>`;
+function renderComments(id){
+  const list=$('#cList'),count=$('#cCount');
+  if(!list)return;
+  const arr=seedComments(id);
+  if(count)count.textContent=`(${arr.length})`;
+  list.innerHTML=arr.length
+    ?arr.slice().reverse().map(commentItem).join('')
+    :'<div class="comment-empty">තවම comment නෑ. පළවෙනියට ඔයාම comment එකක් දාන්න!</div>';
+}
+
+const DEMO_M=[
+{id:'midnight-harbour',t:'Midnight Harbour',y:2026,k:'Movie',g:'Thriller',r:8.1,h:355,dl:12480,v:'WEB-DL 1080p',s:'48 KB',d:'A night-shift dock worker finds a crate that should not exist, and a city that wants it back.',subBy:'gaveshvimanshana'},
+{id:'the-last-lantern',t:'The Last Lantern',y:2026,k:'Movie',g:'Adventure',r:7.6,h:28,dl:9310,v:'BluRay 1080p',s:'52 KB',d:'Three strangers follow a map through a mountain range where every village keeps a different secret.',subBy:'gaveshvimanshana'},
+{id:'iron-valley',t:'Iron Valley',y:2025,k:'Movie',g:'Action',r:7.2,h:210,dl:15900,v:'WEB-DL 720p',s:'61 KB',d:'A retired engineer returns to the mining town he left behind, just as the old tunnels start to collapse.',subBy:'gaveshvimanshana'},
+{id:'paper-moons',t:'Paper Moons',y:2025,k:'Movie',g:'Drama',r:8.4,h:280,dl:7020,v:'BluRay 1080p',s:'44 KB',d:'Two sisters rebuild their late father’s shadow-puppet theatre for one final show.',subBy:'gaveshvimanshana'},
+{id:'cold-signal',t:'Cold Signal',y:2026,k:'Series',g:'Sci-Fi',r:8.7,h:190,dl:18740,v:'S01E01 WEB-DL',s:'39 KB',d:'A polar research station picks up a radio message sent from its own future.',subBy:'gaveshvimanshana'},
+{id:'the-long-table',t:'The Long Table',y:2026,k:'Series',g:'Drama',r:7.9,h:15,dl:6240,v:'S01E03 WEB-DL',s:'41 KB',d:'One family dinner is held every year for three generations, and every year someone leaves early.',subBy:'gaveshvimanshana'},
+{id:'borrowed-time',t:'Borrowed Time',y:2025,k:'Series',g:'Thriller',r:8.0,h:330,dl:11030,v:'S02E05 WEB-DL',s:'43 KB',d:'A detective has 48 hours to solve each case before the evidence disappears.',subBy:'gaveshvimanshana'},
+{id:'laugh-track',t:'Laugh Track',y:2026,k:'Movie',g:'Comedy',r:6.9,h:48,dl:5380,v:'WEB-DL 1080p',s:'47 KB',d:'A failing stand-up comic is hired to write jokes for a funeral home.',subBy:'gaveshvimanshana'},
+{id:'salt-and-ash',t:'Salt and Ash',y:2025,k:'Movie',g:'Horror',r:7.4,h:0,dl:13620,v:'BluRay 720p',s:'50 KB',d:'A coastal lighthouse keeper counts one more ship returning than ever left.',subBy:'gaveshvimanshana'},
+{id:'northern-line',t:'Northern Line',y:2026,k:'Series',g:'Mystery',r:8.2,h:240,dl:9900,v:'S01E02 WEB-DL',s:'40 KB',d:'Every night at 2:14 a.m. the last train arrives with one passenger who never gets off.',subBy:'gaveshvimanshana'},
+{id:'winter-letters',t:'Winter Letters',y:2026,k:'Series',g:'K-Drama',r:8.8,h:200,dl:24300,v:'S01E08 WEB-DL',s:'45 KB',d:'A translator in Seoul receives letters meant for someone who died ten years ago.',subBy:'gaveshvimanshana'},
+{id:'the-last-verdict',t:'The Last Verdict',y:2026,k:'Series',g:'K-Drama',r:8.5,h:260,dl:21870,v:'S01E05 WEB-DL',s:'47 KB',d:'A rookie prosecutor discovers her mentor has been hiding one unsolved case.',subBy:'gaveshvimanshana'},
+{id:'moonlit-palace',t:'Moonlit Palace',y:2025,k:'Series',g:'K-Drama',r:8.3,h:320,dl:19450,v:'S01E12 BluRay',s:'52 KB',d:'A court maid secretly keeps the diary that could change the royal succession.',subBy:'gaveshvimanshana'}
+];
+
+/* ===== Live data from Firebase (falls back to the demo list above if empty/offline) ===== */
+const FIREBASE_DB_URL='https://gaveesha-edfdb-default-rtdb.firebaseio.com';
+function hashHue(str){let h=0;for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))%360;return h}
+let M=DEMO_M.slice();
+async function loadMovies(){
+  try{
+    const res=await fetch(`${FIREBASE_DB_URL}/subtitles.json`);
+    const data=await res.json();
+    if(data&&typeof data==='object'){
+      const arr=Object.keys(data).map(id=>{
+        const v=data[id]||{};
+        return {
+          id, t:v.t||'Untitled', y:v.y||'', k:v.k||'Movie', g:v.g||'',
+          r:Number(v.r)||0, h:Number.isFinite(v.h)?v.h:hashHue(id), dl:Number(v.dl)||0,
+          v:v.v||'', s:v.s||'', d:v.d||'', subBy:v.subBy||'MovieManiaLK team',
+          subUrl:v.subUrl||'', backdrop:v.backdrop||'', poster:v.poster||'',
+          lang:v.lang||'English', runtime:v.runtime||'', tagline:v.tagline||'',
+        };
+      });
+      if(arr.length)M=arr;
+    }
+  }catch(e){console.warn('Firebase load failed, showing demo data',e);}
+}
+function bumpDownload(id){
+  const m=M.find(x=>x.id===id);if(!m)return;
+  m.dl=(m.dl||0)+1;
+  const el=document.getElementById('dlCount');
+  if(el)el.textContent=`${m.dl.toLocaleString('en-US')} Downloads`;
+  // Best-effort: keep the Firebase counter in sync (fails silently offline / if rules block writes)
+  fetch(`${FIREBASE_DB_URL}/subtitles/${id}/dl.json`,{method:'PUT',body:JSON.stringify(m.dl)}).catch(()=>{});
+}
+const $=s=>document.querySelector(s), app=$('#app');
+const by=(f)=>M.slice().sort(f);
+const SECTIONS={
+ trending:['Trending now',()=>by((a,b)=>b.r-a.r).slice(0,6)],
+ latest:['Latest Sinhala subtitles',()=>by((a,b)=>b.y-a.y).slice(0,10)],
+ series:['TV series subtitles',()=>M.filter(m=>m.k==='Series')]
+};
+let query='',timer;
+
+const short=(t,n=7)=>{const w=t.split(/\s+/);return w.slice(0,n).join(' ')+(w.length>n?'…':'')};
+const posterBox=m=>m.poster
+  ?`<div class="poster" style="padding:0;overflow:hidden"><img src="${m.poster}" alt="${esc(m.t)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block"></div>`
+  :`<div class="poster" style="--h:${m.h}"><b>${m.t}</b></div>`;
+const thumbBox=m=>m.backdrop
+  ?`<div class="thumb" style="padding:0;overflow:hidden"><img src="${m.backdrop}" alt="${esc(m.t)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block"></div>`
+  :`<div class="thumb" style="--h:${m.h}"><b>${m.t}</b></div>`;
+const item=m=>`<a class="vitem" href="#/movie/${m.id}">${posterBox(m)}<div><h3>${m.t}</h3><div class="meta"><span>${m.y}</span><span>${m.g}</span></div><p>${short(m.d)}</p></div></a>`;
+const row=(key,list)=>`<section class="row"><div class="wrap"><h2>${SECTIONS[key]?SECTIONS[key][0]:key}</h2><div class="vlist">${list.map(item).join('')}</div></div></section>`;
+
+const trendCard=m=>`<a class="trend-card" href="#/movie/${m.id}">${thumbBox(m)}<h3>${m.t}</h3><div class="trend-meta"><span>${m.y}</span><span>${m.g}</span><span>${m.k}</span></div></a>`;
+const trendRow=(key,list)=>`<section class="row"><div class="wrap"><h2>${SECTIONS[key]?SECTIONS[key][0]:key}</h2><div class="trend-wrap">${list.map(trendCard).join('')}</div></div></section>`;
+
+function banner(){
+  const list=SECTIONS.latest[1]().slice(0,6);
+  return `<section class="banner"><div class="wrap">
+    <div class="slides" id="slides" tabindex="0" aria-label="Featured subtitles">${list.map(m=>`
+      <article class="slide" style="--h:${m.h}">
+        <div class="txt">
+          <a class="st" href="#/movie/${m.id}">${m.t} (${m.y}) With Sinhala Subtitles</a>
+          <div><span class="tag">${m.y}</span><span class="tag">${m.g}</span></div>
+          <div class="acts"><a class="btn" href="#/download/${m.id}">Download</a><a class="btn ghost" href="#/movie/${m.id}">Info</a></div>
+        </div>
+        <div class="poster"><b>${m.t}</b></div>
+      </article>`).join('')}
+    </div>
+    <div class="dots" id="dots">${list.map((_,i)=>`<button aria-label="Show slide ${i+1}"></button>`).join('')}</div>
+  </div></section>`;
+}
+function home(){
+  app.innerHTML=banner()+`<div id="lists"></div>`;
+  lists();
+  carousel();
+}
+function lists(){
+  const el=$('#lists');if(!el)return;
+  if(query){
+    const q=query.toLowerCase();
+    const res=M.filter(m=>(!q||m.t.toLowerCase().includes(q)));
+    el.innerHTML=res.length?row('Results',res):`<div class="wrap empty">No subtitles found. Try a different title.</div>`;
+  }else{
+    el.innerHTML=['trending','latest','series'].map(k=>k==='trending'?trendRow(k,SECTIONS[k][1]()):row(k,SECTIONS[k][1]())).join('');
+  }
+}
+function carousel(){
+  const sl=$('#slides');if(!sl)return;
+  const dots=[...document.querySelectorAll('#dots button')],n=dots.length;
+  const step=()=>sl.children[1].offsetLeft-sl.children[0].offsetLeft;
+  let cur=0;
+  const mark=i=>{cur=i;dots.forEach((d,k)=>d.classList.toggle('on',k===i))};
+  const go=i=>sl.scrollTo({left:i*step(),behavior:'smooth'});
+  dots.forEach((d,i)=>d.onclick=()=>{clearInterval(timer);go(i)});
+  sl.addEventListener('scroll',()=>mark(Math.min(n-1,Math.max(0,Math.round(sl.scrollLeft/step())))),{passive:true});
+  mark(0);
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  timer=setInterval(()=>go((cur+1)%n),5000);
+  ['pointerdown','focusin'].forEach(ev=>sl.addEventListener(ev,()=>clearInterval(timer),{once:true}));
+}
+function section(key){
+  const s=SECTIONS[key];
+  const body=key==='trending'?trendRow(key,s?.[1]()||[]):row(key,s?s[1]():[]);
+  app.innerHTML=s?body+`<div class="wrap"><a class="back" href="#/">Back to home</a></div>`:home();
+}
+/* ===== TMDB (demo): swap this for a fetch to api.themoviedb.org later.
+   backdrop = "https://image.tmdb.org/t/p/w1280" + backdrop_path ===== */
+const NAMES=['Mira Chen','Daniel Okafor','Aiko Tanaka','Lucas Ferreira','Sara Holt','Ravi Menon'];
+const ROLES=['Lead role','Detective Hale','Dr. Imani','Captain Reyes','Nora','The Stranger'];
+const TAGS=['Nothing stays buried.','Every door has a price.','Some stories choose you.'];
+async function getInfo(m){
+  // Prefer the backdrop the admin picked from TMDB and saved in Firebase; fall back to a live search.
+  let backdrop = m.backdrop || '';
+  if(!backdrop){
+    try {
+      const type = m.k==='Series' ? 'tv' : 'movie';
+      const res = await fetch(`https://api.themoviedb.org/3/search/${type}?query=${encodeURIComponent(m.t)}&year=${m.y}&api_key=62970b022a0cfd34d9afa28c131be97b`);
+      const data = await res.json();
+      const hit = (data.results||[])[0];
+      if(hit?.backdrop_path) backdrop = 'https://image.tmdb.org/t/p/w1280' + hit.backdrop_path;
+    } catch(e){}
+  }
+  return{backdrop, tagline:m.tagline||TAGS[m.h%3],
+    runtime:m.runtime||(m.k==='Series'?'1 season':(95+m.h%45)+' min'),
+    lang:m.lang||'English',director:NAMES[(m.h+2)%6],votes:Math.round(m.dl/4).toLocaleString('en-US'),
+    cast:ROLES.map((c,i)=>({n:NAMES[(i+m.h)%6],c}))};
+}
+async function movie(id){
+  const m=M.find(x=>x.id===id);if(!m)return home();
+  const i=await getInfo(m);
+  if(curHash!=='#/movie/'+id)return;
+  const bdImg=i.backdrop?`<img class="bd-img" src="${i.backdrop}" alt="${m.t}" loading="eager">`:`<div class="bd-placeholder"></div>`;
+  app.innerHTML=`
+  <div class="wrap back-row"><a class="back-link" href="#/">← Back to all subtitles</a></div>
+  <div class="wrap">
+    <div class="bd" style="--h:${m.h}">
+      ${bdImg}
+    </div>
+    <div class="hd" style="--h:${m.h}">
+      <h1>${m.t} ${m.y}</h1>
+      <p class="tagline">${i.tagline}</p>
+      <div class="badges">
+        <span class="badge rate">★ ${m.r}/10</span>
+        <span class="badge">⏱ ${i.runtime}</span>
+        <span class="badge">${i.lang}</span>
+        <span class="badge">${m.g}</span>
+      </div>
+    </div>
+
+    <section class="row" style="padding-bottom:0"><h2>Overview</h2>
+      <p class="ov">${m.d}</p>
+      <p class="release-line">www.MovieManiaLKSub.com - ${m.t} (${m.y})${m.v?' '+m.v:''} - [Sinhala Sub]${m.s?' - '+m.s:''} - ${(m.subBy||'MovieManiaLK team')} උපසිරස සඳහා ගැලපේ.</p>
+      <a class="dl-big-btn" href="${m.subUrl||'#'}" ${m.subUrl?'target="_blank" rel="noopener" download':''} onclick="bumpDownload('${id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
+        සිංහල උපසිරස
+      </a>
+      <div class="dl-count" id="dlCount">${(m.dl||0).toLocaleString('en-US')} Downloads</div>
+    </section>
+
+    <section class="row sub-credit-section">
+      <div class="sub-credit-wrap">
+        <div class="sub-credit-title">උපසිරස ගනැන්විම</div>
+        ${(()=>{
+          const subBy = m.subBy || 'MovieManiaLK team';
+          const pic = SUB_PICS[subBy] || null;
+          return pic
+            ? `<img class="sub-credit-avatar" src="${pic}" alt="${subBy}" onerror="this.outerHTML='<div class=sub-credit-avatar-placeholder>🎬</div>'">`
+            : `<div class="sub-credit-avatar-placeholder" style="font-size:1.7rem;font-weight:800;color:#3b9eff;font-family:system-ui">${subBy.charAt(0).toUpperCase()}</div>`;
+        })()}
+        <div class="sub-credit-name">${(m.subBy||'MovieManiaLK team').charAt(0).toUpperCase() + (m.subBy||'MovieManiaLK team').slice(1)}</div>
+      </div>
+    </section>
+
+    <section class="row comments-section">
+      <h2>Comments <span class="comment-count" id="cCount"></span></h2>
+      <form class="comment-form" id="cForm">
+        <input class="comment-input" id="cInput" type="text" placeholder="ඔයාගේ අදහස ලියන්න..." autocomplete="off">
+        <button type="submit" class="comment-submit">Post</button>
+      </form>
+      <div class="comment-list" id="cList"></div>
+    </section>
+  </div>`;
+  renderComments(id);
+  const cForm=$('#cForm'),cInput=$('#cInput');
+  if(cForm)cForm.onsubmit=e=>{
+    e.preventDefault();
+    const val=cInput.value.trim();
+    if(!val)return;
+    seedComments(id).push({name:'ඔයා',text:val,time:'Just now'});
+    cInput.value='';
+    renderComments(id);
+  };
+}
+function download(id){
+  const m=M.find(x=>x.id===id);if(!m)return home();
+  const f=`${m.id}.si.srt`;
+  app.innerHTML=`<div class="wrap detail" style="grid-template-columns:1fr;max-width:720px">
+    <div>
+      <h1>${m.t}</h1>
+      <div class="info"><dl>
+        <dt>File name</dt><dd>${f}</dd>
+        <dt>Format and size</dt><dd>.srt, ${m.s}</dd>
+        <dt>Matches release</dt><dd class="ok">${m.v}</dd>
+      </dl></div>
+      <p style="margin-bottom:1rem">Use this file with a video that matches the release above. A different release may need timing adjustments.</p>
+      <a class="btn" href="subtitles/${f}" download>Download ${f}</a>
+      <h2 style="margin-top:2rem">How to use it</h2>
+      <ol class="steps">
+        <li>Download the .srt file.</li>
+        <li>Rename it to match your video file name, for example <em>Movie.2026.1080p.srt</em>.</li>
+        <li>Put it in the same folder as the video.</li>
+        <li>Open the video in your player. If the subtitle does not load, choose it from the player’s subtitle menu.</li>
+      </ol>
+      <a class="back" href="#/movie/${m.id}">Back to ${m.t}</a>
+    </div></div>`;
+}
+function page(title,text){
+  app.innerHTML=`<div class="wrap detail" style="grid-template-columns:1fr;max-width:720px"><div><h1>${title}</h1><p>${text}</p><a class="back" href="#/">Back to home</a></div></div>`;
+}
+let curHash=location.hash;
+function nav(h){
+  if(curHash===h)return route(h);
+  try{history.pushState(null,'',h)}catch(_){try{location.hash=h}catch(__){}}
+  route(h);
+}
+function route(h){
+  curHash=h===undefined?location.hash:h;
+  clearInterval(timer);
+  const [, a, b]=curHash.split('/');
+  window.scrollTo(0,0);
+  $('#nav').classList.remove('open');$('#menuBtn').setAttribute('aria-expanded','false');
+  if(a==='movie')movie(b);
+  else if(a==='download')download(b);
+  else if(a==='section')section(b);
+  else if(a==='about')page('About','MovieManiaLKSub shares Sinhala subtitle files for movies and TV series. Edit this text to describe your team.');
+  else if(a==='contact')page('Contact','Add your email or social links here.');
+  else if(a==='privacy')page('Privacy','Add your privacy policy here.');
+  else home();
+}
+const sp=$('#sp'),q=$('#q');
+function clearSearch(){q.value='';query='';lists()}
+$('#sBtn').onclick=()=>{const o=sp.classList.toggle('open');$('#sBtn').setAttribute('aria-expanded',o);if(o)q.focus();else clearSearch()};
+q.oninput=()=>{query=q.value.trim();if(curHash&&curHash!=='#/')nav('#/');else lists()};
+q.onkeydown=e=>{if(e.key==='Escape')$('#sBtn').click()};
+$('#sf').onsubmit=e=>{e.preventDefault();const l=$('#lists');if(l)l.scrollIntoView()};
+$('#menuBtn').onclick=e=>{const o=$('#nav').classList.toggle('open');e.currentTarget.setAttribute('aria-expanded',o)};
+document.addEventListener('click',e=>{
+  const a=e.target.closest('a[href^="#/"]');
+  if(!a||e.defaultPrevented||e.metaKey||e.ctrlKey||e.shiftKey)return;
+  e.preventDefault();nav(a.getAttribute('href'));
+});
+['hashchange','popstate'].forEach(ev=>addEventListener(ev,()=>{if(location.hash!==curHash)route(location.hash)}));
+loadMovies().then(route);
+</script>
+</body>
+</html>
